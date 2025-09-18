@@ -39,7 +39,7 @@ internal class Program
         }
         else
         {
-            _ = new Mutex(true, "v2rayN", out var bOnlyOneInstance);
+            _ = new Mutex(true, "haio-antisanction", out var bOnlyOneInstance);
             if (!bOnlyOneInstance)
             {
                 return false;

@@ -8,7 +8,7 @@ on:
         type: string
   push:
     branches:
-      - master
+      - main
 
 env:
   OutputArch: "macos-64"
