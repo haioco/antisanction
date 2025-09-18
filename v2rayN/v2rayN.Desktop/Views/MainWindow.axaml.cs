@@ -1265,6 +1265,14 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             Console.WriteLine($"[DEBUG] Looking for domains file at: {domainsFilePath}");
             
             var domains = new List<string>();
+            
+            // Download domains.txt from tools.haiocloud.com if it doesn't exist
+            if (!File.Exists(domainsFilePath))
+            {
+                Console.WriteLine($"[DEBUG] domains.txt not found, downloading from tools.haiocloud.com...");
+                await DownloadDomainsFile(domainsFilePath);
+            }
+            
             if (File.Exists(domainsFilePath))
             {
                 var lines = await File.ReadAllLinesAsync(domainsFilePath);
@@ -1296,7 +1304,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             }
             else
             {
-                Console.WriteLine($"[DEBUG] domains.txt not found, using default blocked domains");
+                Console.WriteLine($"[DEBUG] Failed to get domains.txt, using default blocked domains");
                 // Add some default domains if file doesn't exist
                 domains.AddRange(new[]
                 {
@@ -1479,6 +1487,35 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         catch (Exception ex)
         {
             Console.WriteLine($"[DEBUG] Failed to delete auth token: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadDomainsFile(string filePath)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] Downloading domains.txt from tools.haiocloud.com...");
+            
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://tools.haiocloud.com/domains.txt");
+            var response = await _httpClient.SendAsync(request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                await File.WriteAllTextAsync(filePath, content);
+                Console.WriteLine($"[DEBUG] Successfully downloaded domains.txt ({content.Length} chars)");
+                Logging.SaveLog("Downloaded domains.txt from tools.haiocloud.com");
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] Failed to download domains.txt: {response.StatusCode}");
+                Logging.SaveLog($"Failed to download domains.txt: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error downloading domains.txt: {ex.Message}");
+            Logging.SaveLog($"Error downloading domains.txt: {ex.Message}");
         }
     }
 

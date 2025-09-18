@@ -399,3 +399,51 @@ FodyWeavers.xsd
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# HAIO Anti-Sanction specific files
+# Auth tokens and user data
+**/auth_token.txt
+**/haio-antisanction/
+AppData/
+LocalData/
+
+# Xray-core binaries and geo data files
+**/bin/xray/
+**/xray
+**/geoip.dat
+**/geosite.dat
+**/Xray-linux-64.zip
+**/xray.exe
+
+# Domain routing configuration (downloaded dynamically)
+**/domains.txt
+
+# Config and database files
+**/config.json
+**/guiConfigs/
+**/guiNConfigs.json
+**/statistics.sqlite
+**/statistics.db
+
+# Log files
+**/error.log
+**/access.log
+**/v2ray*.log
+**/xray*.log
+
+# Temporary and cache files
+**/temp/
+**/tmp/
+**/cache/
+**/.DS_Store
+**/Thumbs.db
+
+# Package files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.deb
+*.rpm
+*.dmg
+*.pkg
+*.appimage
