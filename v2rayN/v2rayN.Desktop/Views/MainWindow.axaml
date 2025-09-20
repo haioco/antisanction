@@ -274,6 +274,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             
             <!-- Simple Header with Close Button -->
@@ -434,6 +435,33 @@
                     
                 </StackPanel>
             </Grid>
+
+            <!-- Collapsible Log Panel (like original v2rayN log) -->
+            <Expander Grid.Row="2" IsExpanded="False">
+                <Expander.Header>
+                    <DockPanel LastChildFill="True" Margin="10,6">
+                        <TextBlock Text="📝 Logs" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Spacing="8">
+                            <Button x:Name="btnCopyLogs" Content="Copy" FontSize="12" Padding="8,4" />
+                            <Button x:Name="btnClearLogs" Content="Clear" FontSize="12" Padding="8,4" />
+                        </StackPanel>
+                    </DockPanel>
+                </Expander.Header>
+                <Border BorderBrush="#E5E7EB" BorderThickness="1" Margin="10,0,10,10" CornerRadius="6" Background="#FAFAFA">
+                    <ScrollViewer x:Name="scrollLogs" VerticalScrollBarVisibility="Auto" Height="160">
+                        <TextBox x:Name="txtLogs"
+                                 Margin="8"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 FontFamily="monospace"
+                                 FontSize="12"
+                                 Text=""/>
+                    </ScrollViewer>
+                </Border>
+            </Expander>
         </Grid>
     </dialogHost:DialogHost>
 </Window>

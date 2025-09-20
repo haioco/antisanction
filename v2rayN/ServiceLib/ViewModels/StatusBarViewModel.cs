@@ -380,7 +380,16 @@ public class StatusBarViewModel : MyReactiveObject
 
     public async Task ChangeSystemProxyAsync(ESysProxyType type, bool blChange)
     {
-        await SysProxyHandler.UpdateSysProxy(_config, false);
+        // Force-disable path should clear proxies even if current type isn't ForcedClear
+        var forceDisable = (type == ESysProxyType.ForcedClear);
+
+        // Persist requested type only when not clearing, so we remember last active mode
+        if (!forceDisable)
+        {
+            _config.SystemProxyItem.SysProxyType = type;
+        }
+
+        await SysProxyHandler.UpdateSysProxy(_config, forceDisable);
 
         BlSystemProxyClear = (type == ESysProxyType.ForcedClear);
         BlSystemProxySet = (type == ESysProxyType.ForcedChange);
@@ -390,6 +399,11 @@ public class StatusBarViewModel : MyReactiveObject
         if (blChange)
         {
             _updateView?.Invoke(EViewAction.DispatcherRefreshIcon, null);
+            // Persist the updated proxy mode only if not clearing
+            if (!forceDisable)
+            {
+                await ConfigHandler.SaveConfig(_config);
+            }
         }
     }
 

@@ -35,56 +35,36 @@ public static class ProxySettingLinux
     {
         try
         {
-            Logging.SaveLog($"{operationName}: Executing shell script with args: {string.Join(" ", args)}");
-            
-            var result = await ExecuteShellScript(_proxySetFileName, args);
-            
-            Logging.SaveLog($"{operationName}: Shell script result - Success: {result.success}, Output: '{result.output}'");
-            
-            if (!result.success)
+            // Ensure the script exists on disk with executable permissions
+            Logging.SaveLog($"{operationName} - Creating shell file: {_proxySetFileName}");
+            var filePath = await FileManager.CreateLinuxShellFile(
+                _proxySetFileName,
+                EmbedUtils.GetEmbedText(Global.ProxySetLinuxShellFileName),
+                overwrite: true
+            );
+            Logging.SaveLog($"{operationName} - Shell file path: {filePath}");
+
+            // Execute via CliWrap helper (captures stdout/stderr); returns null on failure/exception
+            Logging.SaveLog($"{operationName}: Executing '{filePath}' with args: {string.Join(" ", args)}");
+            var output = await Utils.GetCliWrapOutput(filePath, args);
+
+            if (output is null)
             {
-                Logging.SaveLog($"ERROR in {operationName}: Shell script failed - {result.output}");
-                NoticeManager.Instance.SendMessage($"{operationName} failed: {result.output}");
-                throw new Exception($"Shell script execution failed: {result.output}");
+                var msg = $"{operationName} failed: no output (non-zero exit code or exception)";
+                Logging.SaveLog(msg);
+                NoticeManager.Instance.SendMessage(msg);
+                throw new Exception(msg);
             }
-            else
-            {
-                NoticeManager.Instance.SendMessage($"{operationName} completed successfully: {result.output}");
-            }
+
+            // Heuristic: if script printed to stderr, CliWrap still gives output only when success.
+            NoticeManager.Instance.SendMessage($"{operationName} completed successfully");
+            Logging.SaveLog($"{operationName}: {output}");
         }
         catch (Exception ex)
         {
             Logging.SaveLog($"ERROR in {operationName}: {ex.Message}");
             Logging.SaveLog($"Exception details: {ex}");
             throw;
-        }
-    }
-
-    private static async Task<(bool success, string output)> ExecuteShellScript(string scriptName, List<string> args)
-    {
-        try
-        {
-            using var process = new System.Diagnostics.Process();
-            process.StartInfo.FileName = "bash";
-            process.StartInfo.Arguments = $"{scriptName} {string.Join(" ", args)}";
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            process.StartInfo.CreateNoWindow = true;
-
-            process.Start();
-            
-            var output = await process.StandardOutput.ReadToEndAsync();
-            var error = await process.StandardError.ReadToEndAsync();
-            
-            await process.WaitForExitAsync();
-            
-            var fullOutput = string.IsNullOrEmpty(error) ? output : $"{output}\n{error}";
-            return (process.ExitCode == 0, fullOutput.Trim());
-        }
-        catch (Exception ex)
-        {
-            return (false, $"Exception executing script: {ex.Message}");
         }
     }
 }

@@ -109,7 +109,8 @@ public static class SysProxyHandler
                     break;
             }
 
-            if (type != ESysProxyType.Pac && Utils.IsWindows())
+            // Ensure PAC server is stopped when not in PAC mode, across all OSes
+            if (type != ESysProxyType.Pac)
             {
                 PacManager.Instance.Stop();
             }

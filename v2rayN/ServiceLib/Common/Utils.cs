@@ -644,13 +644,19 @@ public class Utils
                 }
             }
 
-            var result = await cmd.ExecuteBufferedAsync();
+            // Do not throw on non-zero exit; capture outputs for logging/diagnostics
+            var result = await cmd
+                .WithValidation(CommandResultValidation.None)
+                .ExecuteBufferedAsync();
             if (result.IsSuccess)
             {
                 return result.StandardOutput ?? "";
             }
 
-            Logging.SaveLog(result.ToString() ?? "");
+            // Log detailed failure information
+            var stdout = result.StandardOutput?.TrimEnd();
+            var stderr = result.StandardError?.TrimEnd();
+            Logging.SaveLog($"CLI failed (exit {result.ExitCode}) for '{filePath}'.\nSTDOUT: {stdout}\nSTDERR: {stderr}");
         }
         catch (Exception ex)
         {

@@ -21,6 +21,9 @@ using ServiceLib.Models;
 using ServiceLib.Handler;
 using ServiceLib.ViewModels;
 using ServiceLib.Enums;
+using ServiceLib.Common;
+using System.IO;
+using System.Text;
 
 namespace v2rayN.Desktop.Views;
 
@@ -34,6 +37,11 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     private readonly HttpClient _httpClient;
     private string? _haioAuthToken;
     private readonly string _tokenFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "haio-antisanction", "auth_token.txt");
+    // Log tailing
+    private FileSystemWatcher? _logWatcher;
+    private string? _currentLogFile;
+    private readonly StringBuilder _logBuffer = new();
+    private const int MaxLogChars = 200_000; // ~200 KB in textbox
     
     // User-visible logging system
     private static readonly List<string> _userLogs = new();
@@ -71,6 +79,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
         // Show HAIO login dialog after window is loaded
         this.Loaded += MainWindow_Loaded;
+    this.Closed += MainWindow_Closed;
         
         // Subscribe to ServiceLib events for user-visible logging
         SubscribeToAppEvents();
@@ -108,6 +117,24 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         // Initialize UI state and load configurations
         UpdateUIState(false); // Start with anti-sanction OFF
         LoadConfigurations(); // Load available proxy configurations
+
+        // Wire log buttons
+        btnClearLogs.Click += (_, __) => { txtLogs.Text = string.Empty; _logBuffer.Clear(); };
+        btnCopyLogs.Click += async (_, __) =>
+        {
+            try
+            {
+                var top = TopLevel.GetTopLevel(this);
+                if (top?.Clipboard != null)
+                {
+                    await top.Clipboard.SetTextAsync(txtLogs.Text ?? string.Empty);
+                }
+            }
+            catch { }
+        };
+
+        // Start log tailing
+        InitLogTailing();
     }
 
     #region Event
@@ -401,8 +428,137 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
         // Check for existing auth token first
-        await Task.Delay(500); // Small delay to ensure UI is ready
+        await Task.Delay(1000); // Longer delay to ensure DialogHost is ready
         await CheckExistingAuthToken();
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_logWatcher is not null)
+            {
+                _logWatcher.EnableRaisingEvents = false;
+                _logWatcher.Created -= OnLogFileChanged;
+                _logWatcher.Changed -= OnLogFileChanged;
+                _logWatcher.Dispose();
+                _logWatcher = null;
+            }
+        }
+        catch { }
+    }
+
+    private void InitLogTailing()
+    {
+        try
+        {
+            var logDir = Utils.GetLogPath();
+            Directory.CreateDirectory(logDir);
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            _currentLogFile = Path.Combine(logDir, today + ".txt");
+
+            // Seed with last lines if exists
+            if (File.Exists(_currentLogFile))
+            {
+                var seeded = TailRead(_currentLogFile, 500);
+                AppendLogs(seeded);
+            }
+
+            _logWatcher = new FileSystemWatcher(logDir)
+            {
+                IncludeSubdirectories = false,
+                Filter = "*.txt",
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime
+            };
+            _logWatcher.Created += OnLogFileChanged;
+            _logWatcher.Changed += OnLogFileChanged;
+            _logWatcher.EnableRaisingEvents = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Log tail init failed: {ex.Message}");
+        }
+    }
+
+    private void OnLogFileChanged(object sender, FileSystemEventArgs e)
+    {
+        try
+        {
+            // Switch to new day file if needed
+            if (_currentLogFile == null || !e.FullPath.Equals(_currentLogFile, StringComparison.OrdinalIgnoreCase))
+            {
+                var today = DateTime.Now.ToString("yyyy-MM-dd");
+                var expected = Path.Combine(Path.GetDirectoryName(e.FullPath)!, today + ".txt");
+                _currentLogFile = expected;
+            }
+
+            // Read appended text safely
+            if (_currentLogFile != null && File.Exists(_currentLogFile))
+            {
+                var chunk = SafeReadTailChunk(_currentLogFile, 8192);
+                if (!string.IsNullOrEmpty(chunk))
+                {
+                    AppendLogs(chunk);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Log change handling failed: {ex.Message}");
+        }
+    }
+
+    private void AppendLogs(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        lock (_userLogsLock)
+        {
+            _logBuffer.Append(text);
+            if (_logBuffer.Length > MaxLogChars)
+            {
+                _logBuffer.Remove(0, _logBuffer.Length - MaxLogChars);
+            }
+            var toSet = _logBuffer.ToString();
+            Dispatcher.UIThread.Post(() =>
+            {
+                txtLogs.Text = toSet;
+                // Auto-scroll to bottom
+                scrollLogs.Offset = new Avalonia.Vector(scrollLogs.Offset.X, double.MaxValue);
+            });
+        }
+    }
+
+    private static string TailRead(string path, int lineCount)
+    {
+        try
+        {
+            var lines = new LinkedList<string>();
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var sr = new StreamReader(fs);
+            while (!sr.EndOfStream)
+            {
+                var line = sr.ReadLine();
+                if (line is null) break;
+                lines.AddLast(line);
+                if (lines.Count > lineCount) lines.RemoveFirst();
+            }
+            return string.Join('\n', lines) + '\n';
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string SafeReadTailChunk(string path, int maxBytes)
+    {
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var len = fs.Length;
+            var start = Math.Max(0, len - maxBytes);
+            fs.Position = start;
+            using var sr = new StreamReader(fs);
+            return sr.ReadToEnd();
+        }
+        catch { return string.Empty; }
     }
 
     private async Task CheckExistingAuthToken()
@@ -449,12 +605,41 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         }
         
         // If we reach here, show the login dialog
-        ShowHaioLoginDialog();
+        await ShowHaioLoginDialogSafe();
+    }
+
+    private async Task ShowHaioLoginDialogSafe()
+    {
+        try
+        {
+            // Ensure UI is ready before showing dialog
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                // Give the UI a moment to fully load
+                await Task.Delay(100);
+                DialogHost.Show(haioLoginDialog);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error showing login dialog: {ex.Message}");
+            // Fallback: try again after a longer delay
+            await Task.Delay(1000);
+            try
+            {
+                DialogHost.Show(haioLoginDialog);
+            }
+            catch (Exception ex2)
+            {
+                Console.WriteLine($"[DEBUG] Failed to show login dialog after retry: {ex2.Message}");
+            }
+        }
     }
 
     private void ShowHaioLoginDialog()
     {
-        DialogHost.Show(haioLoginDialog);
+        // Legacy sync method - calls the safe async version
+        _ = ShowHaioLoginDialogSafe();
     }
 
     private async void BtnRequestOtp_Click(object? sender, RoutedEventArgs e)
@@ -1091,8 +1276,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
     private void HideHaioLoginDialog()
     {
-        haioLoginDialog.IsVisible = false;
-        DialogHost.Close(null);
+        try
+        {
+            haioLoginDialog.IsVisible = false;
+            // DialogHost.Close throws if no dialog is open; guard with try/catch
+            DialogHost.Close(null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] HideHaioLoginDialog: {ex.Message}");
+        }
     }
 
     private void ShowLoginStatus(string message, bool isError)
