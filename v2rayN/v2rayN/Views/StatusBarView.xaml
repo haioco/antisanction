@@ -45,25 +45,7 @@
                     <TextBlock x:Name="txtInboundLanDisplay" Style="{StaticResource StatusbarItem}" />
                 </StackPanel>
 
-                <StackPanel
-                    x:Name="spEnableTun"
-                    Width="Auto"
-                    Margin="{StaticResource MarginLeftRight8}"
-                    VerticalAlignment="Center"
-                    DockPanel.Dock="Left"
-                    Orientation="Horizontal">
-                    <TextBlock
-                        Margin="{StaticResource MarginLeftRight8}"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource StatusbarItem}"
-                        Text="{x:Static resx:ResUI.TbEnableTunAs}" />
-                    <ToggleButton
-                        x:Name="togEnableTun"
-                        Margin="{StaticResource Margin4}"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="{x:Static resx:ResUI.TbEnableTunAs}" />
-                </StackPanel>
+
 
                 <StackPanel
                     Margin="{StaticResource MarginLeftRight8}"
@@ -78,10 +60,10 @@
                         AutomationProperties.Name="{x:Static resx:ResUI.menuSystemproxy}"
                         FontSize="{DynamicResource StdFontSize}"
                         Style="{StaticResource MaterialDesignFloatingHintComboBox}">
-                        <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyClear}" />
-                        <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxySet}" />
-                        <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyNothing}" />
-                        <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyPac}" />
+                        <ComboBoxItem Content="🔴 Anti-Sanction OFF" />
+                        <ComboBoxItem Content="🟢 Anti-Sanction ON" />
+                        <ComboBoxItem Content="⚪ Manual Mode" />
+                        <ComboBoxItem Content="🔄 Auto Mode (PAC)" />
                     </ComboBox>
 
                     <ComboBox

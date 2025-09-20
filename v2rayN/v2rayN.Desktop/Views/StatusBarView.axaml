@@ -30,22 +30,7 @@
                 <TextBlock x:Name="txtInboundLanDisplay" />
             </StackPanel>
 
-            <StackPanel
-                x:Name="spEnableTun"
-                VerticalAlignment="Center"
-                Margin="{StaticResource MarginLr8}"
-                DockPanel.Dock="Left"
-                Orientation="Horizontal">
-                <TextBlock
-                    VerticalAlignment="Center"
-                    Margin="{StaticResource MarginLr8}"
-                    Text="{x:Static resx:ResUI.TbEnableTunAs}" />
-                <ToggleSwitch
-                    x:Name="togEnableTun"
-                    HorizontalAlignment="Center"
-                    Margin="{StaticResource Margin4}"
-                    Theme="{DynamicResource SimpleToggleSwitch}" />
-            </StackPanel>
+
 
             <StackPanel
                 VerticalAlignment="Center"
@@ -57,10 +42,10 @@
                     Width="160"
                     Margin="{StaticResource MarginLr8}"
                     ToolTip.Tip="{x:Static resx:ResUI.menuSystemproxy}">
-                    <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyClear}" />
-                    <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxySet}" />
-                    <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyNothing}" />
-                    <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyPac}" />
+                    <ComboBoxItem Content="🔴 Anti-Sanction OFF" />
+                    <ComboBoxItem Content="🟢 Anti-Sanction ON" />
+                    <ComboBoxItem Content="⚪ Manual Mode" />
+                    <ComboBoxItem Content="🔄 Auto Mode (PAC)" />
                 </ComboBox>
 
                 <ComboBox
