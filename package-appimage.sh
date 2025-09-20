@@ -13,8 +13,8 @@ chmod +x appimagetool
 echo "Downloading core binaries..."
 wget -nv -O "v2rayN-linux-64.zip" "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-linux-64.zip"
 wget -nv -O "v2rayN-linux-arm64.zip" "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-linux-arm64.zip"
-7z x "v2rayN-linux-64.zip"
-7z x "v2rayN-linux-arm64.zip"
+7z x -y "v2rayN-linux-64.zip"
+7z x -y "v2rayN-linux-arm64.zip"
 
 # x86_64 AppDir
 APPDIR_X64="AppDir-x86_64"

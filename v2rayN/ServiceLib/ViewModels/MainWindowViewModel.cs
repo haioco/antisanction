@@ -3,6 +3,10 @@ using System.Reactive.Concurrency;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Splat;
+using ServiceLib.Handler;
+using ServiceLib.Handler.SysProxy;
+using ServiceLib.Manager;
+using ServiceLib.Common;
 
 namespace ServiceLib.ViewModels;
 
@@ -239,6 +243,10 @@ public class MainWindowViewModel : MyReactiveObject
 
         BlReloadEnabled = true;
         await Reload();
+        
+        // Ensure system proxy is automatically activated on startup
+        await EnsureSystemProxyActivated();
+        
         await AutoHideStartup();
         Locator.Current.GetService<StatusBarViewModel>()?.RefreshRoutingsMenu();
     }
@@ -564,6 +572,38 @@ public class MainWindowViewModel : MyReactiveObject
             ShowHideWindow(false);
         }
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Ensures system proxy is automatically activated on app startup
+    /// Sets to PAC mode (Auto Mode) for best anti-sanction experience
+    /// </summary>
+    private async Task EnsureSystemProxyActivated()
+    {
+        try
+        {
+            // Check if proxy is not already active
+            if (_config.SystemProxyItem.SysProxyType == ESysProxyType.ForcedClear || 
+                _config.SystemProxyItem.SysProxyType == ESysProxyType.Unchanged)
+            {
+                // Set to PAC mode (Auto Mode) for automatic anti-sanction activation
+                _config.SystemProxyItem.SysProxyType = ESysProxyType.Pac;
+                await ConfigHandler.SaveConfig(_config);
+                
+                // Apply the proxy settings immediately
+                await SysProxyHandler.UpdateSysProxy(_config, false);
+                
+                // Update the UI to reflect the change
+                await Locator.Current.GetService<StatusBarViewModel>()?.ChangeSystemProxyAsync(ESysProxyType.Pac, true);
+                
+                Logging.SaveLog($"System proxy automatically activated on startup: PAC mode");
+                NoticeManager.Instance.SendMessage("🟢 Anti-Sanction activated automatically (Auto Mode - PAC)");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog($"Failed to automatically activate system proxy: {ex.Message}");
+        }
     }
 
     #endregion core job

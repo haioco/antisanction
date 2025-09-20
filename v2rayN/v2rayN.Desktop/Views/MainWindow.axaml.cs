@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -18,6 +19,8 @@ using v2rayN.Desktop.Common;
 using v2rayN.Desktop.Manager;
 using ServiceLib.Models;
 using ServiceLib.Handler;
+using ServiceLib.ViewModels;
+using ServiceLib.Enums;
 
 namespace v2rayN.Desktop.Views;
 
@@ -44,12 +47,14 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         handler.UseProxy = false;
         _httpClient = new HttpClient(handler);
 
+        // Simplified event handlers for single button interface
         this.KeyDown += MainWindow_KeyDown;
-        menuSettingsSetUWP.Click += menuSettingsSetUWP_Click;
-        menuPromotion.Click += menuPromotion_Click;
-        menuCheckUpdate.Click += MenuCheckUpdate_Click;
-        menuBackupAndRestore.Click += MenuBackupAndRestore_Click;
-        menuClose.Click += MenuClose_Click;
+        btnToggleAntiSanction.IsCheckedChanged += BtnToggleAntiSanction_Click;
+        btnCloseApp.Click += BtnCloseApp_Click;
+        
+        // Configuration management event handlers
+        btnRefreshConfigs.Click += BtnRefreshConfigs_Click;
+        cmbConfigurations.SelectionChanged += CmbConfigurations_SelectionChanged;
 
         // HAIO Login Event Handlers
         btnRequestOtp.Click += BtnRequestOtp_Click;
@@ -63,100 +68,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         // Show HAIO login dialog after window is loaded
         this.Loaded += MainWindow_Loaded;
 
-        switch (_config.UiItem.MainGirdOrientation)
-        {
-            case EGirdOrientation.Horizontal:
-                tabProfiles.Content ??= new ProfilesView(this);
-                tabMsgView.Content ??= new MsgView();
-                tabClashProxies.Content ??= new ClashProxiesView();
-                tabClashConnections.Content ??= new ClashConnectionsView();
-                gridMain.IsVisible = true;
-                break;
-
-            case EGirdOrientation.Vertical:
-                tabProfiles1.Content ??= new ProfilesView(this);
-                tabMsgView1.Content ??= new MsgView();
-                tabClashProxies1.Content ??= new ClashProxiesView();
-                tabClashConnections1.Content ??= new ClashConnectionsView();
-                gridMain1.IsVisible = true;
-                break;
-
-            case EGirdOrientation.Tab:
-            default:
-                tabProfiles2.Content ??= new ProfilesView(this);
-                tabMsgView2.Content ??= new MsgView();
-                tabClashProxies2.Content ??= new ClashProxiesView();
-                tabClashConnections2.Content ??= new ClashConnectionsView();
-                gridMain2.IsVisible = true;
-                break;
-        }
-        conTheme.Content ??= new ThemeSettingView();
-
         this.WhenActivated(disposables =>
         {
-            //servers
-            this.BindCommand(ViewModel, vm => vm.AddVmessServerCmd, v => v.menuAddVmessServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddVlessServerCmd, v => v.menuAddVlessServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddShadowsocksServerCmd, v => v.menuAddShadowsocksServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddSocksServerCmd, v => v.menuAddSocksServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddHttpServerCmd, v => v.menuAddHttpServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddTrojanServerCmd, v => v.menuAddTrojanServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddHysteria2ServerCmd, v => v.menuAddHysteria2Server).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddTuicServerCmd, v => v.menuAddTuicServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddWireguardServerCmd, v => v.menuAddWireguardServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddAnytlsServerCmd, v => v.menuAddAnytlsServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddCustomServerCmd, v => v.menuAddCustomServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddServerViaClipboardCmd, v => v.menuAddServerViaClipboard).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddServerViaScanCmd, v => v.menuAddServerViaScan).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.AddServerViaImageCmd, v => v.menuAddServerViaImage).DisposeWith(disposables);
-
-            //sub
-            this.BindCommand(ViewModel, vm => vm.SubSettingCmd, v => v.menuSubSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.SubUpdateCmd, v => v.menuSubUpdate).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.SubUpdateViaProxyCmd, v => v.menuSubUpdateViaProxy).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.SubGroupUpdateCmd, v => v.menuSubGroupUpdate).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.SubGroupUpdateViaProxyCmd, v => v.menuSubGroupUpdateViaProxy).DisposeWith(disposables);
-
-            //setting
-            this.BindCommand(ViewModel, vm => vm.OptionSettingCmd, v => v.menuOptionSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.RoutingSettingCmd, v => v.menuRoutingSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.FullConfigTemplateCmd, v => v.menuFullConfigTemplate).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.GlobalHotkeySettingCmd, v => v.menuGlobalHotkeySetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.RebootAsAdminCmd, v => v.menuRebootAsAdmin).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.ClearServerStatisticsCmd, v => v.menuClearServerStatistics).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.OpenTheFileLocationCmd, v => v.menuOpenTheFileLocation).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.RegionalPresetDefaultCmd, v => v.menuRegionalPresetsDefault).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.RegionalPresetRussiaCmd, v => v.menuRegionalPresetsRussia).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.RegionalPresetIranCmd, v => v.menuRegionalPresetsIran).DisposeWith(disposables);
-
-            this.BindCommand(ViewModel, vm => vm.ReloadCmd, v => v.menuReload).DisposeWith(disposables);
-            this.OneWayBind(ViewModel, vm => vm.BlReloadEnabled, v => v.menuReload.IsEnabled).DisposeWith(disposables);
-
-            switch (_config.UiItem.MainGirdOrientation)
-            {
-                case EGirdOrientation.Horizontal:
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabMsgView.IsVisible).DisposeWith(disposables);
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashProxies.IsVisible).DisposeWith(disposables);
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashConnections.IsVisible).DisposeWith(disposables);
-                    this.Bind(ViewModel, vm => vm.TabMainSelectedIndex, v => v.tabMain.SelectedIndex).DisposeWith(disposables);
-                    break;
-
-                case EGirdOrientation.Vertical:
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabMsgView1.IsVisible).DisposeWith(disposables);
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashProxies1.IsVisible).DisposeWith(disposables);
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashConnections1.IsVisible).DisposeWith(disposables);
-                    this.Bind(ViewModel, vm => vm.TabMainSelectedIndex, v => v.tabMain1.SelectedIndex).DisposeWith(disposables);
-                    break;
-
-                case EGirdOrientation.Tab:
-                default:
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashProxies2.IsVisible).DisposeWith(disposables);
-                    this.OneWayBind(ViewModel, vm => vm.ShowClashUI, v => v.tabClashConnections2.IsVisible).DisposeWith(disposables);
-                    this.Bind(ViewModel, vm => vm.TabMainSelectedIndex, v => v.tabMain2.SelectedIndex).DisposeWith(disposables);
-                    break;
-            }
-
+            // Simplified bindings for single button interface - no complex menu system
             AppEvents.SendSnackMsgRequested
               .AsObservable()
               .ObserveOn(RxApp.MainThreadScheduler)
@@ -176,24 +90,17 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
               .DisposeWith(disposables);
         });
 
+        this.Title = "HAIO Anti-Sanction";
+
         if (Utils.IsWindows())
         {
-            this.Title = $"{Utils.GetVersion()} - {(Utils.IsAdministrator() ? ResUI.RunAsAdmin : ResUI.NotRunAsAdmin)}";
-
             ThreadPool.RegisterWaitForSingleObject(Program.ProgramStarted, OnProgramStarted, null, -1, false);
-            HotkeyManager.Instance.Init(_config, OnHotkeyHandler);
+            // Removed hotkey manager for simplified interface
         }
-        else
-        {
-            this.Title = $"{Utils.GetVersion()}";
 
-            menuRebootAsAdmin.IsVisible = false;
-            menuSettingsSetUWP.IsVisible = false;
-            menuGlobalHotkeySetting.IsVisible = false;
-        }
-        menuAddServerViaScan.IsVisible = false;
-
-        AddHelpMenuItem();
+        // Initialize UI state and load configurations
+        UpdateUIState(false); // Start with anti-sanction OFF
+        LoadConfigurations(); // Load available proxy configurations
     }
 
     #region Event
@@ -458,59 +365,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
     private void RestoreUI()
     {
-        if (_config.UiItem.MainGirdHeight1 > 0 && _config.UiItem.MainGirdHeight2 > 0)
-        {
-            if (_config.UiItem.MainGirdOrientation == EGirdOrientation.Horizontal)
-            {
-                gridMain.ColumnDefinitions[0].Width = new GridLength(_config.UiItem.MainGirdHeight1, GridUnitType.Star);
-                gridMain.ColumnDefinitions[2].Width = new GridLength(_config.UiItem.MainGirdHeight2, GridUnitType.Star);
-            }
-            else if (_config.UiItem.MainGirdOrientation == EGirdOrientation.Vertical)
-            {
-                gridMain1.RowDefinitions[0].Height = new GridLength(_config.UiItem.MainGirdHeight1, GridUnitType.Star);
-                gridMain1.RowDefinitions[2].Height = new GridLength(_config.UiItem.MainGirdHeight2, GridUnitType.Star);
-            }
-        }
+        // Simplified interface doesn't need grid layout restoration
     }
 
     private void StorageUI()
     {
         ConfigHandler.SaveWindowSizeItem(_config, GetType().Name, Width, Height);
-
-        if (_config.UiItem.MainGirdOrientation == EGirdOrientation.Horizontal)
-        {
-            ConfigHandler.SaveMainGirdHeight(_config, gridMain.ColumnDefinitions[0].ActualWidth, gridMain.ColumnDefinitions[2].ActualWidth);
-        }
-        else if (_config.UiItem.MainGirdOrientation == EGirdOrientation.Vertical)
-        {
-            ConfigHandler.SaveMainGirdHeight(_config, gridMain1.RowDefinitions[0].ActualHeight, gridMain1.RowDefinitions[2].ActualHeight);
-        }
+        // Simplified interface doesn't need to store grid layout
     }
 
-    private void AddHelpMenuItem()
-    {
-        var coreInfo = CoreInfoManager.Instance.GetCoreInfo();
-        foreach (var it in coreInfo
-            .Where(t => t.CoreType != ECoreType.v2fly
-                        && t.CoreType != ECoreType.hysteria))
-        {
-            var item = new MenuItem()
-            {
-                Tag = it.Url?.Replace(@"/releases", ""),
-                Header = string.Format(ResUI.menuWebsiteItem, it.CoreType.ToString().Replace("_", " ")).UpperFirstChar()
-            };
-            item.Click += MenuItem_Click;
-            menuHelp.Items.Add(item);
-        }
-    }
-
-    private void MenuItem_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem item)
-        {
-            ProcUtils.ProcessStart(item.Tag?.ToString());
-        }
-    }
+    // Simplified interface - no help menu needed
 
     #endregion UI
 
@@ -1544,4 +1408,266 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     }
 
     #endregion HAIO Authentication
+
+    #region Simplified UI Event Handlers
+
+    private async void BtnToggleAntiSanction_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton button) return;
+
+        try
+        {
+            var statusBarViewModel = Locator.Current.GetService<StatusBarViewModel>();
+            if (statusBarViewModel == null) return;
+
+            bool isActivating = button.IsChecked == true;
+            
+            if (isActivating)
+            {
+                // Check if a configuration is selected
+                if (cmbConfigurations.SelectedItem is not ProfileItemModel selectedConfig)
+                {
+                    _manager?.Show(new Notification(null, "⚠️ Please select a configuration first", NotificationType.Warning));
+                    button.IsChecked = false; // Revert button state
+                    return;
+                }
+
+                // Ensure the selected configuration is set as default
+                await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
+                
+                // Activate Anti-Sanction (PAC mode)
+                await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.Pac, true);
+                UpdateUIState(true);
+                _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
+            }
+            else
+            {
+                // Deactivate Anti-Sanction (Clear proxy)
+                await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.ForcedClear, true);
+                UpdateUIState(false);
+                _manager?.Show(new Notification(null, "🔴 Anti-Sanction deactivated", NotificationType.Information));
+            }
+        }
+        catch (Exception ex)
+        {
+            _manager?.Show(new Notification(null, $"❌ Error: {ex.Message}", NotificationType.Error));
+            // Revert button state on error
+            if (sender is ToggleButton btn)
+                btn.IsChecked = !btn.IsChecked;
+        }
+    }
+
+    private void BtnCloseApp_Click(object? sender, RoutedEventArgs e)
+    {
+        _blCloseByUser = true;
+        StorageUI();
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+    }
+
+    private void UpdateUIState(bool isActive)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (isActive)
+            {
+                txtConnectionStatus.Text = "🟢 Anti-Sanction is ON";
+                txtConnectionStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(40, 167, 69));
+                
+                // Show information about selected configuration
+                if (cmbConfigurations.SelectedItem is ProfileItemModel selectedConfig)
+                {
+                    txtStatusDescription.Text = $"Connected via {selectedConfig.ConfigTypeDisplay}: {selectedConfig.Remarks}";
+                    txtServerInfo.Text = $"Active: {selectedConfig.Address}:{selectedConfig.Port}";
+                }
+                else
+                {
+                    txtStatusDescription.Text = "Your connection is protected through secure proxy";
+                    txtServerInfo.Text = "PAC Mode Active - Automatic server selection";
+                }
+            }
+            else
+            {
+                txtConnectionStatus.Text = "🔴 Anti-Sanction is OFF";
+                txtConnectionStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 53, 69));
+                
+                // Show information about selected configuration in ready state
+                if (cmbConfigurations.SelectedItem is ProfileItemModel selectedConfig)
+                {
+                    txtStatusDescription.Text = $"Ready to activate {selectedConfig.ConfigTypeDisplay}: {selectedConfig.Remarks}";
+                    txtServerInfo.Text = $"Selected: {selectedConfig.Address}:{selectedConfig.Port}";
+                }
+                else
+                {
+                    txtStatusDescription.Text = "Select a configuration and click to activate secure proxy protection";
+                    txtServerInfo.Text = "No configuration selected";
+                }
+                
+                txtSpeedInfo.Text = "";
+            }
+        });
+    }
+
+    #endregion Simplified UI Event Handlers
+
+    #region Configuration Management
+
+    private async void LoadConfigurations()
+    {
+        try
+        {
+            Console.WriteLine("[DEBUG] Loading proxy configurations...");
+            
+            // Get all profile items from the configuration
+            var profileItems = await AppManager.Instance.ProfileItems("", "");
+            if (profileItems == null || profileItems.Count == 0)
+            {
+                Console.WriteLine("[DEBUG] No configurations found");
+                UpdateConfigurationUI(new List<ProfileItemModel>());
+                return;
+            }
+
+            // ProfileItems already returns ProfileItemModel, just update the ConfigTypeDisplay
+            foreach (var profile in profileItems)
+            {
+                profile.ConfigTypeDisplay = GetConfigTypeDisplay(profile.ConfigType);
+            }
+
+            Console.WriteLine($"[DEBUG] Loaded {profileItems.Count} configurations");
+            UpdateConfigurationUI(profileItems);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error loading configurations: {ex.Message}");
+            _manager?.Show(new Notification(null, $"❌ Error loading configurations: {ex.Message}", NotificationType.Error));
+            UpdateConfigurationUI(new List<ProfileItemModel>());
+        }
+    }
+
+    private void UpdateConfigurationUI(List<ProfileItemModel> configurations)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            cmbConfigurations.ItemsSource = configurations;
+            
+            if (configurations.Count > 0)
+            {
+                txtConfigCount.Text = $"{configurations.Count} configuration(s) available";
+                
+                // Select the currently active configuration if any
+                var activeConfigId = _config.IndexId;
+                if (!string.IsNullOrEmpty(activeConfigId))
+                {
+                    var activeConfig = configurations.FirstOrDefault(c => c.IndexId == activeConfigId);
+                    if (activeConfig != null)
+                    {
+                        cmbConfigurations.SelectedItem = activeConfig;
+                    }
+                }
+                
+                // If nothing is selected, select the first item
+                if (cmbConfigurations.SelectedItem == null && configurations.Count > 0)
+                {
+                    cmbConfigurations.SelectedIndex = 0;
+                }
+            }
+            else
+            {
+                txtConfigCount.Text = "No configurations available";
+                txtConfigCount.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#DC3545"));
+            }
+        });
+    }
+
+    private string GetConfigTypeDisplay(EConfigType configType)
+    {
+        return configType switch
+        {
+            EConfigType.VMess => "VMess",
+            EConfigType.Shadowsocks => "SS",
+            EConfigType.SOCKS => "SOCKS",
+            EConfigType.Trojan => "Trojan",
+            EConfigType.VLESS => "VLESS",
+            EConfigType.Hysteria2 => "Hy2",
+            EConfigType.TUIC => "TUIC",
+            EConfigType.WireGuard => "WG",
+            EConfigType.HTTP => "HTTP",
+            EConfigType.Anytls => "AnyTLS",
+            EConfigType.Custom => "Custom",
+            _ => configType.ToString()
+        };
+    }
+
+    private async void BtnRefreshConfigs_Click(object? sender, RoutedEventArgs e)
+    {
+        btnRefreshConfigs.IsEnabled = false;
+        btnRefreshConfigs.Content = "🔄 Loading...";
+        
+        try
+        {
+            await Task.Delay(500); // Small delay for visual feedback
+            LoadConfigurations();
+            _manager?.Show(new Notification(null, "✅ Configurations refreshed", NotificationType.Success));
+        }
+        catch (Exception ex)
+        {
+            _manager?.Show(new Notification(null, $"❌ Error refreshing: {ex.Message}", NotificationType.Error));
+        }
+        finally
+        {
+            btnRefreshConfigs.IsEnabled = true;
+            btnRefreshConfigs.Content = "🔄 Refresh";
+        }
+    }
+
+    private async void CmbConfigurations_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (cmbConfigurations.SelectedItem is not ProfileItemModel selectedConfig)
+        {
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine($"[DEBUG] Configuration selected: {selectedConfig.Remarks} ({selectedConfig.Address}:{selectedConfig.Port})");
+            
+            // Set this configuration as the default server
+            await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
+            
+            // Update the UI to reflect the selected configuration
+            UpdateSelectedConfigurationInfo(selectedConfig);
+            
+            Console.WriteLine($"[DEBUG] Default server updated to: {selectedConfig.IndexId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error selecting configuration: {ex.Message}");
+            _manager?.Show(new Notification(null, $"❌ Error selecting configuration: {ex.Message}", NotificationType.Error));
+        }
+    }
+
+    private void UpdateSelectedConfigurationInfo(ProfileItemModel config)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (config != null)
+            {
+                txtServerInfo.Text = $"Selected: {config.Remarks} - {config.Address}:{config.Port}";
+                
+                // Update status description to show selected config
+                if (btnToggleAntiSanction.IsChecked == true)
+                {
+                    txtStatusDescription.Text = $"Connected via {config.ConfigTypeDisplay}: {config.Remarks}";
+                }
+                else
+                {
+                    txtStatusDescription.Text = $"Ready to activate {config.ConfigTypeDisplay}: {config.Remarks}";
+                }
+            }
+        });
+    }
+
+    #endregion Configuration Management
 }

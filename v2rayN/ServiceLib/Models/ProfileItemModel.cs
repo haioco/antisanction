@@ -7,6 +7,7 @@ public class ProfileItemModel : ProfileItem
 {
     public bool IsActive { get; set; }
     public string SubRemarks { get; set; }
+    public string ConfigTypeDisplay { get; set; } = string.Empty; // Display-friendly config type name
 
     [Reactive]
     public int Delay { get; set; }
