@@ -39,19 +39,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         _config = AppManager.Instance.Config;
         _manager = new WindowNotificationManager(TopLevel.GetTopLevel(this)) { MaxItems = 3, Position = NotificationPosition.TopRight };
 
-        // Initialize HTTP client with optional proxy
+        // Initialize HTTP client with direct connection (no proxy)
         var handler = new HttpClientHandler();
-        try
-        {
-            // Try to use proxy if available, otherwise use direct connection
-            var proxy = new System.Net.WebProxy("http://127.0.0.1:10810");
-            handler.Proxy = proxy;
-            handler.UseProxy = true;
-        }
-        catch
-        {
-            handler.UseProxy = false;
-        }
+        handler.UseProxy = false;
         _httpClient = new HttpClient(handler);
 
         this.KeyDown += MainWindow_KeyDown;

@@ -78,7 +78,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.dmg
+        file: ${{ github.workspace }}/haio-antisanction*.dmg
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
@@ -95,7 +95,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.zip
+        file: ${{ github.workspace }}/haio-antisanction*.zip
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true

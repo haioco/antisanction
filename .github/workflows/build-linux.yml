@@ -77,7 +77,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.deb
+        file: ${{ github.workspace }}/haio-antisanction*.deb
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
@@ -92,7 +92,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.AppImage
+        file: ${{ github.workspace }}/haio-antisanction*.AppImage
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
@@ -109,7 +109,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.zip
+        file: ${{ github.workspace }}/haio-antisanction*.zip
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
@@ -128,14 +128,14 @@ jobs:
         mkdir -p "${{ github.workspace }}/dist/rpm"
         rsync -av "$HOME/rpmbuild/RPMS/" "${{ github.workspace }}/dist/rpm/"
         # Rename to requested filenames
-        find "${{ github.workspace }}/dist/rpm" -name "v2rayN-*-1.x86_64.rpm" -exec mv {} "${{ github.workspace }}/dist/rpm/v2rayN-linux-rhel-x64.rpm" \; || true
-        find "${{ github.workspace }}/dist/rpm" -name "v2rayN-*-1.aarch64.rpm" -exec mv {} "${{ github.workspace }}/dist/rpm/v2rayN-linux-rhel-arm64.rpm" \; || true
+        find "${{ github.workspace }}/dist/rpm" -name "haio-antisanction-*-1.x86_64.rpm" -exec mv {} "${{ github.workspace }}/dist/rpm/haio-antisanction-linux-rhel-x64.rpm" \; || true
+        find "${{ github.workspace }}/dist/rpm" -name "haio-antisanction-*-1.aarch64.rpm" -exec mv {} "${{ github.workspace }}/dist/rpm/haio-antisanction-linux-rhel-arm64.rpm" \; || true
 
     - name: Upload RPM artifacts
       if: steps.release_tag.outputs.tag != ''
       uses: actions/upload-artifact@v4.6.2
       with:
-        name: v2rayN-rpm
+        name: haio-antisanction-rpm
         path: |
           ${{ github.workspace }}/dist/rpm/**/*.rpm
 

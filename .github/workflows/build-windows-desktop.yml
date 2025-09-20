@@ -71,15 +71,15 @@ jobs:
       run: |
         chmod 755 package-release-zip.sh
         ./package-release-zip.sh $OutputArch $OutputPath64
-        mv "v2rayN-${OutputArch}.zip" "v2rayN-${OutputArch}-desktop.zip"
+        mv "haio-antisanction-${OutputArch}.zip" "haio-antisanction-${OutputArch}-desktop.zip"
         ./package-release-zip.sh $OutputArchArm $OutputPathArm64
-        mv "v2rayN-${OutputArchArm}.zip" "v2rayN-${OutputArchArm}-desktop.zip"
+        mv "haio-antisanction-${OutputArchArm}.zip" "haio-antisanction-${OutputArchArm}-desktop.zip"
 
     - name: Upload zip archive to release
       uses: svenstaro/upload-release-action@v2
       if: steps.release_tag.outputs.tag != ''
       with:
-        file: ${{ github.workspace }}/v2rayN*.zip
+        file: ${{ github.workspace }}/haio-antisanction*.zip
         tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true

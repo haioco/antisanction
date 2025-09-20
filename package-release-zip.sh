@@ -3,10 +3,11 @@
 Arch="$1"
 OutputPath="$2"
 
-OutputArch="v2rayN-${Arch}"
-FileName="v2rayN-${Arch}.zip"
+OutputArch="haio-antisanction-${Arch}"
+FileName="haio-antisanction-${Arch}.zip"
 
-wget -nv -O $FileName "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/$FileName"
+# Download v2ray core binaries but use our own naming
+wget -nv -O "v2rayN-${Arch}.zip" "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-${Arch}.zip"
 
 ZipPath64="./$OutputArch"
 mkdir $ZipPath64

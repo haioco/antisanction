@@ -603,10 +603,10 @@ build_for_arch() {
 # Ignore outdated LTTng dependencies incorrectly reported by the .NET runtime (to avoid installation failures)
 %global __requires_exclude ^liblttng-ust\.so\..*$
 
-Name:           v2rayN
+Name:           haio-antisanction
 Version:        __VERSION__
 Release:        1%{?dist}
-Summary:        v2rayN (Avalonia) GUI client for Linux (x86_64/aarch64)
+Summary:        HAIO Anti-Sanction - Cross-platform proxy client (x86_64/aarch64)
 License:        GPL-3.0-only
 URL:            https://github.com/2dust/v2rayN
 BugURL:         https://github.com/2dust/v2rayN/issues
@@ -657,13 +657,13 @@ chmod 0755 %{buildroot}%{_bindir}/v2rayn
 
 # Desktop file
 install -dm0755 %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/v2rayn.desktop << 'EOF'
+cat > %{buildroot}%{_datadir}/applications/haio-antisanction.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
-Name=v2rayN
-Comment=v2rayN for Red Hat Enterprise Linux
-Exec=v2rayn
-Icon=v2rayn
+Name=HAIO Anti-Sanction
+Comment=HAIO Anti-Sanction for Red Hat Enterprise Linux
+Exec=haio-antisanction
+Icon=haio-antisanction
 Terminal=false
 Categories=Network;
 EOF
@@ -699,7 +699,7 @@ SPEC
         print "cat > %{buildroot}/etc/xdg/autostart/v2rayn.desktop << '\''EOF'\''"
         print "[Desktop Entry]"
         print "Type=Application"
-        print "Name=v2rayN (Autostart)"
+        print "Name=HAIO Anti-Sanction (Autostart)"
         print "Exec=v2rayn"
         print "X-GNOME-Autostart-enabled=true"
         print "NoDisplay=false"
