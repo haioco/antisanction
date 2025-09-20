@@ -9,6 +9,9 @@
 		<Product>HAIO Anti-Sanction</Product>
 		<Company>HAIO</Company>
 		<Description>HAIO Anti-Sanction Client - Fork of v2rayN</Description>
+		<Version>1.0.1</Version>
+		<AssemblyVersion>1.0.1.0</AssemblyVersion>
+		<FileVersion>1.0.1.0</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
