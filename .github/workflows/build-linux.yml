@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
 
 env:
   OutputArch: "linux-64"
@@ -36,6 +38,18 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Determine release tag
+      id: release_tag
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.ref_type }}" == "tag" ]; then
+          echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "tag=" >> $GITHUB_OUTPUT
+        fi
+        echo "Release tag: $(cat $GITHUB_OUTPUT | grep tag= | cut -d= -f2)"
+
     - name: Build
       run: |
         cd v2rayN 
@@ -53,39 +67,39 @@ jobs:
 
     # release debian package
     - name: Package debian
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         chmod 755 package-debian.sh
-        ./package-debian.sh $OutputArch $OutputPath64 ${{ github.event.inputs.release_tag }}
-        ./package-debian.sh $OutputArchArm $OutputPathArm64 ${{ github.event.inputs.release_tag }}
+        ./package-debian.sh $OutputArch $OutputPath64 ${{ steps.release_tag.outputs.tag }}
+        ./package-debian.sh $OutputArchArm $OutputPathArm64 ${{ steps.release_tag.outputs.tag }}
 
     - name: Upload deb to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       with:
         file: ${{ github.workspace }}/v2rayN*.deb
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
 
     - name: Package AppImage
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         chmod a+x package-appimage.sh
         ./package-appimage.sh
 
     - name: Upload AppImage to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       with:
         file: ${{ github.workspace }}/v2rayN*.AppImage
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
 
     # release zip archive
     - name: Package release zip archive
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         chmod 755 package-release-zip.sh
         ./package-release-zip.sh $OutputArch $OutputPath64
@@ -93,23 +107,23 @@ jobs:
     
     - name: Upload zip archive to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       with:
         file: ${{ github.workspace }}/v2rayN*.zip
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true
 
     # release RHEL package
     - name: Package RPM (RHEL-family)
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         chmod 755 package-rhel.sh
         # Build for both x86_64 and aarch64 in one go (explicit version passed; no --buildfrom)
-        ./package-rhel.sh "${{ github.event.inputs.release_tag }}" --arch all
+        ./package-rhel.sh "${{ steps.release_tag.outputs.tag }}" --arch all
 
     - name: Collect RPMs into workspace
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         mkdir -p "${{ github.workspace }}/dist/rpm"
         rsync -av "$HOME/rpmbuild/RPMS/" "${{ github.workspace }}/dist/rpm/"
@@ -118,7 +132,7 @@ jobs:
         find "${{ github.workspace }}/dist/rpm" -name "v2rayN-*-1.aarch64.rpm" -exec mv {} "${{ github.workspace }}/dist/rpm/v2rayN-linux-rhel-arm64.rpm" \; || true
 
     - name: Upload RPM artifacts
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       uses: actions/upload-artifact@v4.6.2
       with:
         name: v2rayN-rpm
@@ -127,9 +141,9 @@ jobs:
 
     - name: Upload RPMs to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       with:
         file: ${{ github.workspace }}/dist/rpm/**/*.rpm
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true

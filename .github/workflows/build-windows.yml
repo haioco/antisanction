@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
 
 env:
   OutputArch: "windows-64"
@@ -34,6 +36,18 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Determine release tag
+      id: release_tag
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.ref_type }}" == "tag" ]; then
+          echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "tag=" >> $GITHUB_OUTPUT
+        fi
+        echo "Release tag: $(cat $GITHUB_OUTPUT | grep tag= | cut -d= -f2)"
+
     - name: Build
       run: |
         cd v2rayN 
@@ -54,7 +68,7 @@ jobs:
     
     # release zip archive
     - name: Package release zip archive
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       run: |
         chmod 755 package-release-zip.sh
         ./package-release-zip.sh $OutputArch $OutputPath64
@@ -63,9 +77,9 @@ jobs:
     
     - name: Upload zip archive to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: steps.release_tag.outputs.tag != ''
       with:
         file: ${{ github.workspace }}/v2rayN*.zip
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ steps.release_tag.outputs.tag }}
         file_glob: true
         prerelease: true

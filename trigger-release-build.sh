@@ -1,0 +1,35 @@
+#!/bin/bash
+# Manual Release Build Trigger Instructions
+# 
+# Since the build-all.yml workflow requires manual triggering,
+# follow these steps to create release builds for all platforms:
+
+echo "🚀 HAIO Anti-Sanction Release Build Instructions"
+echo "=============================================="
+echo ""
+echo "1. Open your browser and go to:"
+echo "   https://github.com/haioco/antisanction/actions/workflows/build-all.yml"
+echo ""
+echo "2. Click the 'Run workflow' button (green button on the right)"
+echo ""
+echo "3. Fill in the form:"
+echo "   - Branch: main"
+echo "   - release_tag: v1.0.1"
+echo ""
+echo "4. Click 'Run workflow' to start the build process"
+echo ""
+echo "This will:"
+echo "✅ Build for Linux (x64, ARM64) - DEB, AppImage, RPM, ZIP"
+echo "✅ Build for Windows (x64, ARM64) - ZIP, Installer"  
+echo "✅ Build for macOS (Intel, Apple Silicon) - DMG, ZIP"
+echo "✅ Build for Windows Desktop (Avalonia UI) - ZIP"
+echo "✅ Upload all artifacts to GitHub Release v1.0.1"
+echo ""
+echo "⏱️  Expected build time: 10-15 minutes for all platforms"
+echo "📦 Release artifacts will appear at:"
+echo "   https://github.com/haioco/antisanction/releases/tag/v1.0.1"
+echo ""
+echo "🔧 Troubleshooting:"
+echo "- If workflows don't trigger automatically, repository may need Actions enabled"
+echo "- Individual platform workflows can be triggered separately if needed"
+echo "- Check Actions tab for build progress and logs"
