@@ -34,6 +34,10 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     private readonly HttpClient _httpClient;
     private string? _haioAuthToken;
     private readonly string _tokenFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "haio-antisanction", "auth_token.txt");
+    
+    // User-visible logging system
+    private static readonly List<string> _userLogs = new();
+    private static readonly object _userLogsLock = new();
 
     public MainWindow()
     {
@@ -67,6 +71,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
         // Show HAIO login dialog after window is loaded
         this.Loaded += MainWindow_Loaded;
+        
+        // Subscribe to ServiceLib events for user-visible logging
+        SubscribeToAppEvents();
 
         this.WhenActivated(disposables =>
         {
@@ -241,6 +248,17 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             {
                 ViewModel?.Reload();
             }
+            else if (e.Key == Key.F12)
+            {
+                // Show debug logs
+                ShowDebugLogsDialog();
+            }
+            else if (e.Key == Key.Escape)
+            {
+                // Close any open dialogs
+                HideHaioLoginDialog();
+                globalStatusBorder.IsVisible = false;
+            }
         }
     }
 
@@ -391,6 +409,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     {
         try
         {
+            // Check for bypass file first
+            var bypassFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bypass_auth.txt");
+            if (File.Exists(bypassFilePath))
+            {
+                Console.WriteLine($"[DEBUG] Found bypass_auth.txt file, skipping authentication");
+                Logging.SaveLog("Authentication bypassed via bypass_auth.txt file");
+                ShowLoginStatus("Development mode - Authentication bypassed", isError: false);
+                return; // Don't show login dialog
+            }
+
             var savedToken = await LoadAuthToken();
             
             if (!string.IsNullOrEmpty(savedToken))
@@ -1427,10 +1455,13 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 // Check if a configuration is selected
                 if (cmbConfigurations.SelectedItem is not ProfileItemModel selectedConfig)
                 {
+                    LogToUser("PROXY", "No configuration selected - please select one first");
                     _manager?.Show(new Notification(null, "⚠️ Please select a configuration first", NotificationType.Warning));
                     button.IsChecked = false; // Revert button state
                     return;
                 }
+
+                LogToUser("PROXY", $"Activating Anti-Sanction via {selectedConfig.Remarks} ({selectedConfig.Address}:{selectedConfig.Port})");
 
                 // Ensure the selected configuration is set as default
                 await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
@@ -1438,13 +1469,19 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 // Activate Anti-Sanction (PAC mode)
                 await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.Pac, true);
                 UpdateUIState(true);
+                
+                LogToUser("PROXY", "Anti-Sanction activated successfully in PAC mode");
                 _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
             }
             else
             {
+                LogToUser("PROXY", "Deactivating Anti-Sanction proxy");
+                
                 // Deactivate Anti-Sanction (Clear proxy)
                 await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.ForcedClear, true);
                 UpdateUIState(false);
+                
+                LogToUser("PROXY", "Anti-Sanction deactivated - proxy cleared");
                 _manager?.Show(new Notification(null, "🔴 Anti-Sanction deactivated", NotificationType.Information));
             }
         }
@@ -1670,4 +1707,138 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     }
 
     #endregion Configuration Management
+
+    #region User-Visible Logging System
+
+    // Static method to log messages that users can see
+    public static void LogToUser(string category, string message)
+    {
+        lock (_userLogsLock)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+            var logEntry = $"[{timestamp}] [{category}] {message}";
+            _userLogs.Add(logEntry);
+            
+            // Keep only last 100 log entries
+            if (_userLogs.Count > 100)
+            {
+                _userLogs.RemoveAt(0);
+            }
+            
+            // Also write to regular log
+            Logging.SaveLog(logEntry);
+            
+            // Show notification for important messages
+            if (category == "ERROR")
+            {
+                ShowUserNotification($"❌ {message}", NotificationType.Error);
+            }
+            else if (category == "AUTH" || category == "PROXY")
+            {
+                ShowUserNotification($"ℹ️ {message}", NotificationType.Information);
+            }
+        }
+    }
+    
+    // Subscribe to ServiceLib notifications to capture proxy operations
+    private void SubscribeToAppEvents()
+    {
+        // Subscribe to snack messages (brief notifications) - these are proxy status updates
+        ServiceLib.Handler.AppEvents.SendSnackMsgRequested.Subscribe(message =>
+        {
+            // Check if it's a proxy-related message and log appropriately
+            if (message.Contains("Anti-Sanction") || message.Contains("proxy") || message.Contains("PAC"))
+            {
+                LogToUser("PROXY", message);
+            }
+            else
+            {
+                LogToUser("SYSTEM", message);
+            }
+        });
+
+        // Subscribe to detailed messages (operations) - these are detailed status info
+        ServiceLib.Handler.AppEvents.SendMsgViewRequested.Subscribe(message =>
+        {
+            LogToUser("INFO", message);
+        });
+    }
+
+    private static void ShowUserNotification(string message, NotificationType type)
+    {
+        try
+        {
+            // Find the main window instance to show notifications
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                var mainWindow = desktop.MainWindow as MainWindow;
+                Dispatcher.UIThread.Post(() => 
+                {
+                    mainWindow?._manager?.Show(new Notification(null, message, type));
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error showing user notification: {ex.Message}");
+        }
+    }
+
+    private void ShowDebugLogsDialog()
+    {
+        try
+        {
+            List<string> logsCopy;
+            lock (_userLogsLock)
+            {
+                logsCopy = new List<string>(_userLogs);
+            }
+            
+            if (logsCopy.Count == 0)
+            {
+                logsCopy.Add("[No debug logs available yet]");
+                logsCopy.Add("Logs will appear here when you use proxy functions:");
+                logsCopy.Add("- Toggle Anti-Sanction ON/OFF");
+                logsCopy.Add("- Change proxy configurations");
+                logsCopy.Add("- Authentication events");
+            }
+
+            var logsText = string.Join("\n", logsCopy);
+            
+            var dialog = new Window
+            {
+                Title = "Debug Logs (F12 to show, Escape to close)",
+                Width = 800,
+                Height = 600,
+                Content = new ScrollViewer
+                {
+                    Content = new TextBlock
+                    {
+                        Text = logsText,
+                        FontFamily = "Consolas,Monaco,monospace",
+                        FontSize = 12,
+                        Margin = new Thickness(10),
+                        TextWrapping = Avalonia.Media.TextWrapping.NoWrap
+                    }
+                }
+            };
+
+            // Add key handlers to close with Escape
+            dialog.KeyDown += (sender, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    dialog.Close();
+                }
+            };
+
+            dialog.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            _manager?.Show(new Notification(null, $"❌ Error showing logs: {ex.Message}", NotificationType.Error));
+        }
+    }
+
+    #endregion User-Visible Logging System
 }

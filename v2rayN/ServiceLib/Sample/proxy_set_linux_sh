@@ -28,7 +28,25 @@ set_gnome_proxy() {
         echo "Proxy Port: $PROXY_PORT"
         echo "Ignored Hosts: $IGNORE_HOSTS"
     elif [ "$MODE" == "none" ]; then
-        echo "GNOME: Proxy disabled."
+        # Clear all proxy settings when disabling
+        local PROTOCOLS=("http" "https" "ftp" "socks")
+        
+        # Loop through protocols to clear the proxy settings
+        for PROTOCOL in "${PROTOCOLS[@]}"; do
+            gsettings set org.gnome.system.proxy.$PROTOCOL host ""
+            gsettings set org.gnome.system.proxy.$PROTOCOL port 0
+        done
+        
+        # Clear ignored hosts
+        gsettings set org.gnome.system.proxy ignore-hosts "[]"
+        
+        echo "GNOME: Proxy disabled and all settings cleared."
+    elif [ "$MODE" == "auto" ]; then
+        # Set PAC (auto-config) URL
+        gsettings set org.gnome.system.proxy autoconfig-url "$PROXY_IP"
+        
+        echo "GNOME: PAC (auto-config) proxy set."
+        echo "PAC URL: $PROXY_IP"
     fi
 }
 
@@ -63,9 +81,20 @@ set_kde_proxy() {
         echo "Proxy Port: $PROXY_PORT"
         echo "Ignored Hosts: $IGNORE_HOSTS"
     elif [ "$MODE" == "none" ]; then
-        # Disable proxy
+        # Disable proxy and clear all settings
         $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key ProxyType 0
-        echo "KDE: Proxy disabled."
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key httpProxy ""
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key httpsProxy ""
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key ftpProxy ""
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key socksProxy ""
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key NoProxyFor ""
+        echo "KDE: Proxy disabled and all settings cleared."
+    elif [ "$MODE" == "auto" ]; then
+        # Set PAC (auto-config) proxy
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key ProxyType 2
+        $KWRITECONFIG --file kioslaverc --group "Proxy Settings" --key Proxy Config Script "$PROXY_IP"
+        echo "KDE: PAC (auto-config) proxy set."
+        echo "PAC URL: $PROXY_IP"
     fi
 
     # Apply changes by restarting KDE's network settings
@@ -125,9 +154,10 @@ detect_desktop_environment() {
 
 # Main script logic
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <mode> [proxy_ip proxy_port ignore_hosts]"
-    echo "  mode: 'none' or 'manual'"
+    echo "Usage: $0 <mode> [proxy_ip proxy_port ignore_hosts | pac_url]"
+    echo "  mode: 'none', 'manual', or 'auto'"
     echo "  If mode is 'manual', provide proxy IP, port, and ignore hosts."
+    echo "  If mode is 'auto', provide PAC URL."
     exit 1
 fi
 
@@ -137,8 +167,8 @@ PROXY_IP=$2
 PROXY_PORT=$3
 IGNORE_HOSTS=$4
 
-if ! [[ "$MODE" =~ ^(manual|none)$ ]]; then
-    echo "Invalid mode. Use 'none' or 'manual'." >&2
+if ! [[ "$MODE" =~ ^(manual|none|auto)$ ]]; then
+    echo "Invalid mode. Use 'none', 'manual', or 'auto'." >&2
     exit 1
 fi
 

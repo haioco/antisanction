@@ -636,7 +636,7 @@ cp -a * %{buildroot}/opt/v2rayN/
 
 # Launcher (prefer native ELF first, then DLL fallback)
 install -dm0755 %{buildroot}%{_bindir}
-cat > %{buildroot}%{_bindir}/v2rayn << 'EOF'
+cat > %{buildroot}%{_bindir}/haio-antisanction << 'EOF'
 #!/usr/bin/bash
 set -euo pipefail
 DIR="/opt/v2rayN"
@@ -653,7 +653,7 @@ echo "v2rayN launcher: no executable found in $DIR" >&2
 ls -l "$DIR" >&2 || true
 exit 1
 EOF
-chmod 0755 %{buildroot}%{_bindir}/v2rayn
+chmod 0755 %{buildroot}%{_bindir}/haio-antisanction
 
 # Desktop file
 install -dm0755 %{buildroot}%{_datadir}/applications
@@ -671,7 +671,7 @@ EOF
 # Icon
 if [ -f "%{_builddir}/__PKGROOT__/v2rayn.png" ]; then
   install -dm0755 %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
-  install -m0644 %{_builddir}/__PKGROOT__/v2rayn.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/v2rayn.png
+  install -m0644 %{_builddir}/__PKGROOT__/v2rayn.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/haio-antisanction.png
 fi
 
 %post
@@ -683,10 +683,10 @@ fi
 /usr/bin/gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
 
 %files
-%{_bindir}/v2rayn
+%{_bindir}/haio-antisanction
 /opt/v2rayN
-%{_datadir}/applications/v2rayn.desktop
-%{_datadir}/icons/hicolor/256x256/apps/v2rayn.png
+%{_datadir}/applications/haio-antisanction.desktop
+%{_datadir}/icons/hicolor/256x256/apps/haio-antisanction.png
 SPEC
 
   # Autostart injection (inside %install) and %files entry
@@ -696,11 +696,11 @@ SPEC
       /^%post$/ && !ins {
         print "# --- Autostart (.desktop) ---"
         print "install -dm0755 %{buildroot}/etc/xdg/autostart"
-        print "cat > %{buildroot}/etc/xdg/autostart/v2rayn.desktop << '\''EOF'\''"
+        print "cat > %{buildroot}/etc/xdg/autostart/haio-antisanction.desktop << '\''EOF'\''"
         print "[Desktop Entry]"
         print "Type=Application"
         print "Name=HAIO Anti-Sanction (Autostart)"
-        print "Exec=v2rayn"
+        print "Exec=haio-antisanction"
         print "X-GNOME-Autostart-enabled=true"
         print "NoDisplay=false"
         print "EOF"
@@ -712,9 +712,9 @@ SPEC
     awk '
       BEGIN{infiles=0; done=0}
       /^%files$/        {infiles=1}
-      infiles && done==0 && $0 ~ /%{_datadir}\/icons\/hicolor\/256x256\/apps\/v2rayn\.png/ {
+      infiles && done==0 && $0 ~ /%{_datadir}\/icons\/hicolor\/256x256\/apps\/haio-antisanction\.png/ {
         print
-        print "%config(noreplace) /etc/xdg/autostart/v2rayn.desktop"
+        print "%config(noreplace) /etc/xdg/autostart/haio-antisanction.desktop"
         done=1
         next
       }

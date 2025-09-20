@@ -21,6 +21,12 @@ public static class ProxySettingOSX
         await ExecCmd(args);
     }
 
+    public static async Task SetPacProxy(string pacUrl)
+    {
+        List<string> args = ["pac", pacUrl];
+        await ExecCmd(args);
+    }
+
     private static async Task ExecCmd(List<string> args)
     {
         var fileName = await FileManager.CreateLinuxShellFile(_proxySetFileName, EmbedUtils.GetEmbedText(Global.ProxySetOSXShellFileName), false);
