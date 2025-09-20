@@ -4,6 +4,9 @@ Arch="$1"
 OutputPath="$2"
 Version="$3"
 
+# Strip 'v' prefix from version for Debian packaging (Debian versions must start with digit)
+DebianVersion="${Version#v}"
+
 # Download v2ray core binaries (keep original URL for compatibility)
 FileName="v2rayN-${Arch}.zip"
 wget -nv -O $FileName "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/$FileName"
@@ -26,7 +29,7 @@ echo $Arch2
 # basic
 cat >"${PackagePath}/DEBIAN/control" <<-EOF
 Package: haio-antisanction
-Version: $Version
+Version: $DebianVersion
 Architecture: $Arch2
 Maintainer: https://github.com/haioco/antisanction
 Depends: desktop-file-utils, xdg-utils
