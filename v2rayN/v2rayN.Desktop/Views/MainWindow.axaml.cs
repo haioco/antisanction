@@ -1565,19 +1565,20 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     port = "443",
                     network = "udp"
                 },
-                // Route ALL domains through proxy - combine specific domains with catch-all patterns
+                // Route specific domains through proxy (NO catch-all keyword)
                 new
                 {
-                    remarks = "HAIO - Proxy ALL domains",
+                    remarks = "HAIO - Proxy specific domains",
                     outboundTag = "proxy", 
                     enabled = true,
                     domain = domains.Concat(new[] { 
-                        "keyword:.", // Catch any traffic that looks like a domain (contains a dot)
                         "geosite:cn", // Route Chinese sites  
                         "geosite:google",
                         "geosite:youtube", 
                         "geosite:facebook",
                         "geosite:twitter",
+                        "geosite:instagram",
+                        "geosite:telegram",
                         "geosite:category-ads-all" // Route ads too
                     }).ToArray()
                 },
