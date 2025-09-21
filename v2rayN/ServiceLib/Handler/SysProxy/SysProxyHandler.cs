@@ -148,7 +148,7 @@ public static class SysProxyHandler
                     break;
             }
 
-            // Always stop PAC server since we're now using direct proxy instead of PAC
+            // Always stop PAC server since we're using direct proxy instead of PAC
             PacManager.Instance.Stop();
         }
         catch (Exception ex)

@@ -1474,6 +1474,17 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             {
                 Console.WriteLine($"[DEBUG] domains.txt not found, downloading from tools.haiocloud.com...");
                 await DownloadDomainsFile(domainsFilePath);
+                
+                // Also try alternative locations for Linux build
+                if (!File.Exists(domainsFilePath))
+                {
+                    var binDomainsPath = Path.Combine(Environment.CurrentDirectory, "domains.txt");
+                    if (File.Exists(binDomainsPath))
+                    {
+                        Console.WriteLine($"[DEBUG] Found domains.txt in bin directory, copying to: {domainsFilePath}");
+                        File.Copy(binDomainsPath, domainsFilePath, true);
+                    }
+                }
             }
 
             if (File.Exists(domainsFilePath))
@@ -1534,38 +1545,49 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Use proxy port 10820 for PAC/routing
             int proxyPort = 10820;
 
-            // Create routing rule set JSON for HAIO domains
+            // Create routing rule set JSON for HAIO - Route ALL domains through proxy
             var haioRouteRules = new List<object>
             {
-                // Route HAIO domains through proxy
-                new
-                {
-                    remarks = $"HAIO - Proxy domains from domains.txt (port {proxyPort})",
-                    outboundTag = "proxy",
-                    domain = domains.ToArray()
-                },
-                // Block UDP 443 (common issue with some protocols)
-                new
-                {
-                    remarks = "HAIO - Block UDP 443",
-                    outboundTag = "block", 
-                    port = "443",
-                    network = "udp"
-                },
-                // Bypass private networks (local traffic)
+                // Bypass private networks first (local traffic must be direct)
                 new
                 {
                     remarks = "HAIO - Direct private networks",
-                    outboundTag = "direct",
+                    outboundTag = "direct", 
+                    enabled = true,
                     ip = new[] { "geoip:private" }
                 },
-                // Direct all other traffic (everything not matching above rules)
+                // Block UDP 443 (common issue with some protocols) 
                 new
                 {
-                    remarks = "HAIO - Direct all other traffic",
+                    remarks = "HAIO - Block UDP 443",
+                    outboundTag = "block",
+                    enabled = true,
+                    port = "443",
+                    network = "udp"
+                },
+                // Route ALL domains through proxy - combine specific domains with catch-all patterns
+                new
+                {
+                    remarks = "HAIO - Proxy ALL domains",
+                    outboundTag = "proxy", 
+                    enabled = true,
+                    domain = domains.Concat(new[] { 
+                        "keyword:.", // Catch any traffic that looks like a domain (contains a dot)
+                        "geosite:cn", // Route Chinese sites  
+                        "geosite:google",
+                        "geosite:youtube", 
+                        "geosite:facebook",
+                        "geosite:twitter",
+                        "geosite:category-ads-all" // Route ads too
+                    }).ToArray()
+                },
+                // All remaining traffic (direct IP connections) goes direct
+                new
+                {
+                    remarks = "HAIO - Direct all IP traffic",
                     outboundTag = "direct",
-                    network = "tcp,udp"
-                    // No domain or ip filters - this catches everything else
+                    enabled = true
+                    // No filters - this catches everything else (IP-based traffic)
                 }
             };
 
@@ -1600,8 +1622,18 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             await ConfigHandler.SaveRoutingItem(_config, haioRouting);
             await ConfigHandler.SetDefaultRouting(_config, haioRouting);
 
+            // Ensure routing is enabled and domain strategy is set appropriately
+            _config.RoutingBasicItem.RoutingIndexId = haioRouting.Id;
+            _config.RoutingBasicItem.DomainStrategy = "IPIfNonMatch"; // This helps with domain resolution
+            _config.RoutingBasicItem.DomainStrategy4Singbox = "prefer_ipv4";
+            
+            // Save the updated configuration
+            ConfigHandler.SaveConfig(_config);
+            
             Console.WriteLine($"[DEBUG] HAIO routing configuration added and activated successfully");
-            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains will be proxied on port {proxyPort}");
+            Console.WriteLine($"[DEBUG] Set routing mode - DomainStrategy: {_config.RoutingBasicItem.DomainStrategy}");
+            Console.WriteLine($"[DEBUG] Configuration saved and routing rules applied");
+            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains with domain strategy {_config.RoutingBasicItem.DomainStrategy}");
         }
         catch (Exception ex)
         {
