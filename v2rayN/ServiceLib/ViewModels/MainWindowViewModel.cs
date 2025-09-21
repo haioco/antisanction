@@ -575,34 +575,18 @@ public class MainWindowViewModel : MyReactiveObject
     }
 
     /// <summary>
-    /// Ensures system proxy is automatically activated on app startup
-    /// Sets to PAC mode (Auto Mode) for best anti-sanction experience
+    /// Do not force-enable system proxy on startup (respect user's choice; no PAC)
     /// </summary>
     private async Task EnsureSystemProxyActivated()
     {
         try
         {
-            // Check if proxy is not already active
-            if (_config.SystemProxyItem.SysProxyType == ESysProxyType.ForcedClear || 
-                _config.SystemProxyItem.SysProxyType == ESysProxyType.Unchanged)
-            {
-                // Set to PAC mode (Auto Mode) for automatic anti-sanction activation
-                _config.SystemProxyItem.SysProxyType = ESysProxyType.Pac;
-                await ConfigHandler.SaveConfig(_config);
-                
-                // Apply the proxy settings immediately
-                await SysProxyHandler.UpdateSysProxy(_config, false);
-                
-                // Update the UI to reflect the change
-                await Locator.Current.GetService<StatusBarViewModel>()?.ChangeSystemProxyAsync(ESysProxyType.Pac, true);
-                
-                Logging.SaveLog($"System proxy automatically activated on startup: PAC mode");
-                NoticeManager.Instance.SendMessage("🟢 Anti-Sanction activated automatically (Auto Mode - PAC)");
-            }
+            // No-op: Keep system proxy unchanged per user requirement (no PAC)
+            await Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            Logging.SaveLog($"Failed to automatically activate system proxy: {ex.Message}");
+            Logging.SaveLog($"Failed in EnsureSystemProxyActivated: {ex.Message}");
         }
     }
 

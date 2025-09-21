@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using ServiceLib.Services;
 
 namespace ServiceLib.Manager;
 
@@ -225,13 +226,150 @@ public class CoreManager
 
     #region Process
 
+    /// <summary>
+    /// Ensure the core executable exists; if not, download and install it.
+    /// </summary>
+    private async Task<bool> EnsureCoreAvailable(CoreInfo? coreInfo)
+    {
+        if (coreInfo == null)
+        {
+            return false;
+        }
+
+        // Check again if core already exists
+        var existed = CoreInfoManager.Instance.GetCoreExecFile(coreInfo, out _);
+        if (!existed.IsNullOrEmpty())
+        {
+            return true;
+        }
+
+        try
+        {
+            var tcs = new TaskCompletionSource<string?>();
+            async Task UpdateHandler(bool notify, string msg)
+            {
+                // When notify==true, UpdateService passes back the downloaded file path
+                if (notify)
+                {
+                    tcs.TrySetResult(msg);
+                }
+                else
+                {
+                    await UpdateFunc(false, msg);
+                }
+            }
+
+            // Download the core archive for the detected core type
+            var updater = new UpdateService();
+            await updater.CheckUpdateCore(coreInfo.CoreType, _config, UpdateHandler, false);
+
+            // Wait for download to complete and get archive path
+            var archivePath = await tcs.Task;
+            if (archivePath.IsNullOrEmpty() || !File.Exists(archivePath))
+            {
+                await UpdateFunc(false, ResUI.FailedToRunCore);
+                return false;
+            }
+
+            // Install (extract) the archive into bin/<CoreType>
+            var ok = await InstallCoreArchive(coreInfo, archivePath!);
+            try
+            {
+                if (File.Exists(archivePath))
+                {
+                    File.Delete(archivePath);
+                }
+            }
+            catch { /* ignore cleanup errors */ }
+
+            if (!ok)
+            {
+                return false;
+            }
+
+            // Final existence check
+            var finalPath = CoreInfoManager.Instance.GetCoreExecFile(coreInfo, out _);
+            return !finalPath.IsNullOrEmpty();
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            await UpdateFunc(false, ex.Message);
+            return false;
+        }
+    }
+
+    private async Task<bool> InstallCoreArchive(CoreInfo coreInfo, string fileName)
+    {
+        try
+        {
+            var toPath = Utils.GetBinPath("", coreInfo.CoreType.ToString());
+
+            if (fileName.Contains(".tar.gz", StringComparison.OrdinalIgnoreCase))
+            {
+                FileManager.DecompressTarFile(fileName, toPath);
+                var dir = new DirectoryInfo(toPath);
+                if (dir.Exists)
+                {
+                    foreach (var subDir in dir.GetDirectories())
+                    {
+                        FileManager.CopyDirectory(subDir.FullName, toPath, false, true);
+                        subDir.Delete(true);
+                    }
+                }
+            }
+            else if (fileName.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+            {
+                FileManager.DecompressFile(fileName, toPath, coreInfo.CoreType.ToString());
+            }
+            else
+            {
+                // default: zip
+                FileManager.ZipExtractToFile(fileName, toPath, "geo");
+            }
+
+            // Ensure execute permissions on non-Windows systems
+            if (Utils.IsNonWindows())
+            {
+                foreach (var exeName in coreInfo.CoreExes)
+                {
+                    var exePath = Utils.GetBinPath(Utils.GetExeName(exeName), coreInfo.CoreType.ToString());
+                    if (File.Exists(exePath))
+                    {
+                        await Utils.SetLinuxChmod(exePath);
+                    }
+                }
+            }
+
+            await UpdateFunc(false, ResUI.MsgUpdateV2rayCoreSuccessfully);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            await UpdateFunc(false, ex.Message);
+            return false;
+        }
+    }
     private async Task<Process?> RunProcess(CoreInfo? coreInfo, string configPath, bool displayLog, bool mayNeedSudo)
     {
         var fileName = CoreInfoManager.Instance.GetCoreExecFile(coreInfo, out var msg);
         if (fileName.IsNullOrEmpty())
         {
-            await UpdateFunc(false, msg);
-            return null;
+            // Try to auto-install the required core if it's missing (useful on Linux/macOS publish builds)
+            await UpdateFunc(false, $"{ResUI.NotFoundCore}\nTrying to download the core '{coreInfo?.CoreType}' automatically...");
+            var ensured = await EnsureCoreAvailable(coreInfo);
+            if (!ensured)
+            {
+                await UpdateFunc(false, msg);
+                return null;
+            }
+            fileName = CoreInfoManager.Instance.GetCoreExecFile(coreInfo, out msg);
+            if (fileName.IsNullOrEmpty())
+            {
+                await UpdateFunc(false, msg);
+                return null;
+            }
         }
 
         try

@@ -128,7 +128,7 @@ public sealed class AppManager
 
     public int GetLocalPort(EInboundProtocol protocol)
     {
-        var localPort = _config.Inbound.FirstOrDefault(t => t.Protocol == nameof(EInboundProtocol.socks))?.LocalPort ?? 10808;
+        var localPort = _config.Inbound.FirstOrDefault(t => t.Protocol == nameof(EInboundProtocol.socks))?.LocalPort ?? 10820;
         return localPort + (int)protocol;
     }
 

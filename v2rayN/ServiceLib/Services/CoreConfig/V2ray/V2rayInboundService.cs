@@ -12,6 +12,11 @@ public partial class CoreConfigV2rayService
             var inbound = GetInbound(_config.Inbound.First(), EInboundProtocol.socks, true);
             v2rayConfig.inbounds.Add(inbound);
 
+            // Add mixed protocol inbound for HTTP proxy support
+            var inboundMixed = GetInbound(_config.Inbound.First(), EInboundProtocol.mixed, false);
+            inboundMixed.protocol = EInboundProtocol.mixed.ToString();
+            v2rayConfig.inbounds.Add(inboundMixed);
+
             if (_config.Inbound.First().SecondLocalPortEnabled)
             {
                 var inbound2 = GetInbound(_config.Inbound.First(), EInboundProtocol.socks2, true);
@@ -60,8 +65,41 @@ public partial class CoreConfigV2rayService
             return new();
         }
         inbound.tag = protocol.ToString();
-        inbound.port = inItem.LocalPort + (int)protocol;
-        inbound.protocol = EInboundProtocol.mixed.ToString();
+        
+        // Custom port calculation to avoid conflicts with other apps
+        // SOCKS uses LocalPort (10820), mixed uses LocalPort + 6 (10826)
+        switch (protocol)
+        {
+            case EInboundProtocol.socks:
+                inbound.port = inItem.LocalPort; // 10820
+                break;
+            case EInboundProtocol.mixed:
+                inbound.port = inItem.LocalPort + 6; // 10826
+                break;
+            case EInboundProtocol.socks2:
+                inbound.port = inItem.LocalPort + 1; // 10821
+                break;
+            case EInboundProtocol.socks3:
+                inbound.port = inItem.LocalPort + 2; // 10822
+                break;
+            case EInboundProtocol.pac:
+                inbound.port = inItem.LocalPort + 3; // 10823
+                break;
+            default:
+                inbound.port = inItem.LocalPort + (int)protocol;
+                break;
+        }
+        
+        // Use SOCKS for SOCKS protocols, otherwise use the actual protocol
+        if (bSocks || protocol == EInboundProtocol.socks || protocol == EInboundProtocol.socks2 || protocol == EInboundProtocol.socks3)
+        {
+            inbound.protocol = EInboundProtocol.mixed.ToString(); // mixed supports both SOCKS and HTTP
+        }
+        else
+        {
+            inbound.protocol = protocol.ToString();
+        }
+        
         inbound.settings.udp = inItem.UdpEnabled;
         inbound.sniffing.enabled = inItem.SniffingEnabled;
         inbound.sniffing.destOverride = inItem.DestOverride;

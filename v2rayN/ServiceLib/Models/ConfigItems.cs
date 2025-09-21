@@ -216,7 +216,7 @@ public class ClashUIItem
 [Serializable]
 public class SystemProxyItem
 {
-    public ESysProxyType SysProxyType { get; set; } = ESysProxyType.Pac;
+    public ESysProxyType SysProxyType { get; set; } = ESysProxyType.Unchanged;
     public string SystemProxyExceptions { get; set; }
     public bool NotProxyLocalAddress { get; set; } = true;
     public string SystemProxyAdvancedProtocol { get; set; }

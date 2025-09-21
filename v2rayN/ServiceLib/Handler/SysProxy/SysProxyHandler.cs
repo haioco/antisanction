@@ -13,7 +13,8 @@ public static class SysProxyHandler
         Logging.SaveLog($"UpdateSysProxy called - Original type: {type}, ForceDisable: {forceDisable}, OS: {Environment.OSVersion}");
         NoticeManager.Instance.SendMessage($"System proxy update: {type} (Force disable: {forceDisable})");
 
-        if (forceDisable && type != ESysProxyType.Unchanged)
+        // When force disabling, always clear the system proxy regardless of current type
+        if (forceDisable)
         {
             type = ESysProxyType.ForcedClear;
             Logging.SaveLog($"Force disable requested - Type changed to: {type}");
@@ -22,22 +23,22 @@ public static class SysProxyHandler
 
         try
         {
-            var port = AppManager.Instance.GetLocalPort(EInboundProtocol.socks);
-            var exceptions = config.SystemProxyItem.SystemProxyExceptions.Replace(" ", "");
+            // Prepare exceptions safely (may be null in config) 
+            var exceptions = (config.SystemProxyItem.SystemProxyExceptions ?? string.Empty).Replace(" ", "");
             
-            Logging.SaveLog($"Retrieved port: {port}, Exceptions: '{exceptions}'");
-            
-            if (port <= 0)
-            {
-                Logging.SaveLog($"ERROR: Invalid port {port} - returning false");
-                return false;
-            }
             Logging.SaveLog($"Processing proxy type: {type}");
             
             switch (type)
             {
                 case ESysProxyType.ForcedChange when Utils.IsWindows():
                     {
+                        // Use mixed port for system proxy (supports both HTTP and SOCKS)
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for ForcedChange on Windows - returning false");
+                            return false;
+                        }
                         Logging.SaveLog("Setting Windows manual proxy");
                         GetWindowsProxyString(config, port, out var strProxy, out var strExceptions);
                         Logging.SaveLog($"Windows proxy string: '{strProxy}', exceptions: '{strExceptions}'");
@@ -46,18 +47,34 @@ public static class SysProxyHandler
                         break;
                     }
                 case ESysProxyType.ForcedChange when Utils.IsLinux():
-                    Logging.SaveLog($"Setting Linux manual proxy - Host: {Global.Loopback}, Port: {port}");
+                    {
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for ForcedChange on Linux - returning false");
+                            return false;
+                        }
+                        Logging.SaveLog($"Setting Linux manual proxy - Host: {Global.Loopback}, Port: {port}");
                     NoticeManager.Instance.SendMessage($"Setting Linux manual proxy on port {port}");
                     await ProxySettingLinux.SetProxy(Global.Loopback, port, exceptions);
                     Logging.SaveLog("Linux manual proxy set successfully");
                     NoticeManager.Instance.Enqueue("Linux manual proxy activated");
                     break;
+                    }
 
                 case ESysProxyType.ForcedChange when Utils.IsOSX():
-                    Logging.SaveLog($"Setting OSX manual proxy - Host: {Global.Loopback}, Port: {port}");
-                    await ProxySettingOSX.SetProxy(Global.Loopback, port, exceptions);
-                    Logging.SaveLog("OSX manual proxy set successfully");
-                    break;
+                    {
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for ForcedChange on OSX - returning false");
+                            return false;
+                        }
+                        Logging.SaveLog($"Setting OSX manual proxy - Host: {Global.Loopback}, Port: {port}");
+                        await ProxySettingOSX.SetProxy(Global.Loopback, port, exceptions);
+                        Logging.SaveLog("OSX manual proxy set successfully");
+                        break;
+                    }
 
                 case ESysProxyType.ForcedClear when Utils.IsWindows():
                     Logging.SaveLog("Clearing Windows proxy");
@@ -80,40 +97,59 @@ public static class SysProxyHandler
                     break;
 
                 case ESysProxyType.Pac when Utils.IsWindows():
-                    Logging.SaveLog("Setting Windows PAC proxy");
-                    await SetWindowsProxyPac(port);
-                    Logging.SaveLog("Windows PAC proxy set successfully");
-                    break;
+                    {
+                        // Respect "no PAC": we do NOT enable PAC; if PAC requested, we still set a direct manual proxy
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for PAC on Windows - returning false");
+                            return false;
+                        }
+                        Logging.SaveLog("Setting Windows direct proxy (instead of PAC)");
+                        GetWindowsProxyString(config, port, out var strProxyWin, out var strExceptionsWin);
+                        Logging.SaveLog($"Windows direct proxy string: '{strProxyWin}', exceptions: '{strExceptionsWin}'");
+                        ProxySettingWindows.SetProxy(strProxyWin, strExceptionsWin, 2);
+                        Logging.SaveLog("Windows direct proxy set successfully");
+                        break;
+                    }
 
                 case ESysProxyType.Pac when Utils.IsLinux():
                     {
-                        var portPac = AppManager.Instance.GetLocalPort(EInboundProtocol.pac);
-                        await PacManager.Instance.StartAsync(Utils.GetConfigPath(), port, portPac);
-                        var pacUrl = $"{Global.HttpProtocol}{Global.Loopback}:{portPac}/pac?t={DateTime.Now.Ticks}";
-                        Logging.SaveLog($"Setting Linux PAC proxy - URL: {pacUrl}");
-                        NoticeManager.Instance.SendMessage($"Setting Linux PAC proxy: {pacUrl}");
-                        await ProxySettingLinux.SetPacProxy(pacUrl);
-                        Logging.SaveLog("Linux PAC proxy set successfully");
-                        NoticeManager.Instance.Enqueue("Linux PAC proxy activated");
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for PAC on Linux - returning false");
+                            return false;
+                        }
+                        Logging.SaveLog($"Setting Linux direct proxy (instead of PAC) - Host: {Global.Loopback}, Port: {port}");
+                        NoticeManager.Instance.SendMessage($"Setting Linux direct proxy on port {port}");
+                        await ProxySettingLinux.SetProxy(Global.Loopback, port, exceptions);
+                        Logging.SaveLog("Linux direct proxy set successfully");
+                        NoticeManager.Instance.Enqueue("Linux direct proxy activated");
                         break;
                     }
 
                 case ESysProxyType.Pac when Utils.IsOSX():
-                    Logging.SaveLog("Setting OSX PAC proxy");
-                    await SetOSXProxyPac(port);
-                    Logging.SaveLog("OSX PAC proxy set successfully");
-                    break;
+                    {
+                        var port = AppManager.Instance.GetLocalPort(EInboundProtocol.mixed);
+                        if (port <= 0)
+                        {
+                            Logging.SaveLog($"ERROR: Invalid port {port} for PAC on OSX - returning false");
+                            return false;
+                        }
+                        Logging.SaveLog($"Setting OSX direct proxy (instead of PAC) - Host: {Global.Loopback}, Port: {port}");
+                        await ProxySettingOSX.SetProxy(Global.Loopback, port, exceptions);
+                        Logging.SaveLog("OSX direct proxy set successfully");
+                        break;
+                    }
                     
                 default:
                     Logging.SaveLog($"No matching case for type: {type} on OS: {Environment.OSVersion}");
                     break;
             }
 
-            // Ensure PAC server is stopped when not in PAC mode, across all OSes
-            if (type != ESysProxyType.Pac)
-            {
-                PacManager.Instance.Stop();
-            }
+            // Always stop PAC server since we're now using direct proxy instead of PAC
+            PacManager.Instance.Stop();
         }
         catch (Exception ex)
         {
@@ -128,7 +164,7 @@ public static class SysProxyHandler
 
     private static void GetWindowsProxyString(Config config, int port, out string strProxy, out string strExceptions)
     {
-        strExceptions = config.SystemProxyItem.SystemProxyExceptions.Replace(" ", "");
+        strExceptions = (config.SystemProxyItem.SystemProxyExceptions ?? string.Empty).Replace(" ", "");
         if (config.SystemProxyItem.NotProxyLocalAddress)
         {
             strExceptions = $"<local>;{strExceptions}";

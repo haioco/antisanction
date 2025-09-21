@@ -19,6 +19,7 @@ using v2rayN.Desktop.Common;
 using v2rayN.Desktop.Manager;
 using ServiceLib.Models;
 using ServiceLib.Handler;
+using ServiceLib.Handler.SysProxy;
 using ServiceLib.ViewModels;
 using ServiceLib.Enums;
 using ServiceLib.Common;
@@ -1021,6 +1022,10 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Setup domain-based routing rules
             await SetupHaioRoutingRules();
             
+            // Now reload so the core picks up the new HAIO routing immediately
+            Console.WriteLine($"[DEBUG] Reloading core to apply HAIO routing...");
+            await ViewModel.Reload();
+            
             HideHaioLoginDialog();
             ShowLoginStatus("Login successful! HAIO servers and routing configured.", isError: false);
         }
@@ -1058,6 +1063,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             {
                 await ProcessAntiSanctionPackages(responseText);
                 Console.WriteLine($"[DEBUG] Successfully processed anti-sanction packages");
+                // Do not reload here; we'll reload after HAIO routing is created
             }
             catch (Exception ex)
             {
@@ -1173,22 +1179,42 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 {
                     Console.WriteLine($"[DEBUG] Found config URL: {configUrl}");
                     
-                    // Get additional info for logging
+                    // Get additional info for logging and display
                     string? title = package.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : "Unknown";
                     string? domain = package.TryGetProperty("domain", out var domainElement) ? domainElement.GetString() : "Unknown";
                     bool isOver = package.TryGetProperty("is_over", out var isOverElement) && isOverElement.GetInt32() == 1;
                     
-                    Console.WriteLine($"[DEBUG] Server: {title}, Domain: {domain}, Is Expired: {isOver}");
+                    // Get traffic information
+                    double totalTraffic = package.TryGetProperty("total_traffic", out var totalTrafficElement) ? totalTrafficElement.GetDouble() : 0;
+                    string totalTrafficUsage = package.TryGetProperty("total_traffic_usage", out var totalTrafficUsageElement) ? totalTrafficUsageElement.GetString() ?? "0.00" : "0.00";
+                    string usagePercent = package.TryGetProperty("usage_percent", out var usagePercentElement) ? usagePercentElement.GetString() ?? "0.00" : "0.00";
                     
-                    // Only add servers that are not expired (is_over == 0)
+                    // Clean up the title (remove newlines and whitespace)
+                    string cleanTitle = title?.Trim().Replace("\n", "").Replace("\r", "") ?? "Unknown Server";
+                    if (string.IsNullOrWhiteSpace(cleanTitle) || cleanTitle.ToLower() == "server")
+                    {
+                        cleanTitle = $"HAIO-{domain?.Split('.').FirstOrDefault() ?? "Server"}";
+                    }
+                    
+                    // Create display name with traffic info
+                    string displayName = $"{cleanTitle} ({totalTraffic}GB, {usagePercent}% used)";
+                    if (isOver)
+                    {
+                        displayName += " [EXPIRED]";
+                    }
+                    
+                    Console.WriteLine($"[DEBUG] Server: {cleanTitle}, Domain: {domain}, Is Expired: {isOver}");
+                    Console.WriteLine($"[DEBUG] Traffic: {totalTraffic}GB total, {totalTrafficUsage}GB used ({usagePercent}%)");
+                    
+                    // Only add active servers (hide expired ones from UI)
                     if (!isOver)
                     {
-                        await AddTrojanConfigurationFromUrl(configUrl, title ?? "HaioGateway");
+                        await AddTrojanConfigurationFromUrl(configUrl, displayName);
                     }
                     else
                     {
-                        Console.WriteLine($"[DEBUG] Skipping expired server: {title}");
-                        Logging.SaveLog($"Skipped expired HAIO server: {title} ({domain})");
+                        Console.WriteLine($"[DEBUG] Skipping expired server from UI: {cleanTitle}");
+                        Logging.SaveLog($"Skipped expired HAIO server from UI: {cleanTitle} ({domain})");
                     }
                 }
                 else
@@ -1220,13 +1246,29 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 Logging.SaveLog($"HAIO server already exists, skipping: {serverName}");
                 return;
             }
-            
+
             // Add to v2rayN using existing clipboard functionality
             Logging.SaveLog($"Adding new HAIO Trojan server: {serverName}");
-            
-            // Use the existing method to add server via clipboard data
-            await ViewModel.AddServerViaClipboardAsync(configUrl);
-            
+
+            // Use existing method to add server via clipboard: inject the desired remarks as URL fragment
+            // If the URL already contains a fragment, replace it; otherwise, append it
+            string urlWithRemark;
+            try
+            {
+                var uri = new Uri(configUrl);
+                var baseNoFragment = configUrl.Split('#')[0];
+                var encoded = Utils.UrlEncode(serverName ?? "HAIO");
+                urlWithRemark = $"{baseNoFragment}#{encoded}";
+            }
+            catch
+            {
+                // Fallback: simple append
+                var encoded = Utils.UrlEncode(serverName ?? "HAIO");
+                urlWithRemark = configUrl.Contains('#') ? Regex.Replace(configUrl, "#.*$", "#" + encoded) : configUrl + "#" + encoded;
+            }
+
+            await ViewModel.AddServerViaClipboardAsync(urlWithRemark);
+
             Console.WriteLine($"[DEBUG] Successfully added Trojan server: {serverName}");
         }
         catch (Exception ex)
@@ -1244,18 +1286,19 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             var uri = new Uri(configUrl);
             var serverAddress = uri.Host;
             var serverPort = uri.Port;
+            var serverUser = uri.UserInfo; // This contains the password/username which makes each HAIO server unique
             
-            Console.WriteLine($"[DEBUG] Checking for existing server: {serverAddress}:{serverPort}");
+            Console.WriteLine($"[DEBUG] Checking for existing server: {serverAddress}:{serverPort} with user {serverUser}");
             
             // Get all existing profile items
             var existingProfiles = await AppManager.Instance.ProfileItems("");
             
             if (existingProfiles != null)
             {
-                // Check if any existing server matches this address and port
+                // Check if any existing server matches this address, port, AND user credentials
                 foreach (var profile in existingProfiles)
                 {
-                    if (profile.Address == serverAddress && profile.Port == serverPort)
+                    if (profile.Address == serverAddress && profile.Port == serverPort && profile.Id == serverUser)
                     {
                         Console.WriteLine($"[DEBUG] Found duplicate server: {profile.Remarks ?? profile.Address}");
                         return true;
@@ -1338,16 +1381,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Read domains from domains.txt
             string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
             Console.WriteLine($"[DEBUG] Looking for domains file at: {domainsFilePath}");
-            
-            var domains = new List<string>();
-            
+
+            var proxyDomains = new List<string>();
+
             // Download domains.txt from tools.haiocloud.com if it doesn't exist
             if (!File.Exists(domainsFilePath))
             {
                 Console.WriteLine($"[DEBUG] domains.txt not found, downloading from tools.haiocloud.com...");
                 await DownloadDomainsFile(domainsFilePath);
             }
-            
+
             if (File.Exists(domainsFilePath))
             {
                 var lines = await File.ReadAllLinesAsync(domainsFilePath);
@@ -1356,43 +1399,39 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     var domain = line.Trim();
                     if (!string.IsNullOrEmpty(domain) && !domain.StartsWith("#"))
                     {
-                        // Convert simple domain format to v2ray format
+                        // Only add valid domains
                         if (domain.StartsWith("."))
                         {
-                            // .example.com -> domain:example.com (includes subdomains)
-                            domains.Add($"domain:{domain.Substring(1)}");
+                            proxyDomains.Add($"domain:{domain.Substring(1)}");
                         }
                         else if (domain.Contains("keyword:"))
                         {
-                            // keyword:youtube -> keyword:youtube (already correct)
-                            domains.Add(domain);
+                            proxyDomains.Add(domain);
                         }
                         else
                         {
-                            // example.com -> full:example.com (exact match) and domain:example.com (includes subdomains)
-                            domains.Add($"full:{domain}");
-                            domains.Add($"domain:{domain}");
+                            proxyDomains.Add($"full:{domain}");
+                            proxyDomains.Add($"domain:{domain}");
                         }
                     }
                 }
-                Console.WriteLine($"[DEBUG] Loaded {domains.Count} domain rules from domains.txt");
+                Console.WriteLine($"[DEBUG] Loaded {proxyDomains.Count} domain rules from domains.txt");
             }
             else
             {
                 Console.WriteLine($"[DEBUG] Failed to get domains.txt, using default blocked domains");
-                // Add some default domains if file doesn't exist
-                domains.AddRange(new[]
+                proxyDomains.AddRange(new[]
                 {
-                    "domain:twitter.com", "domain:youtube.com", "domain:facebook.com", 
+                    "domain:twitter.com", "domain:youtube.com", "domain:facebook.com",
                     "domain:instagram.com", "domain:telegram.org", "domain:google.com"
                 });
             }
 
             // Create HAIO routing configuration
-            await CreateHaioRoutingConfiguration(domains);
-            
+            await CreateHaioRoutingConfiguration(proxyDomains);
+
             Console.WriteLine($"[DEBUG] HAIO routing rules setup completed successfully");
-            Logging.SaveLog($"HAIO domain-based routing configured with {domains.Count} domains");
+            Logging.SaveLog($"HAIO domain-based routing configured with {proxyDomains.Count} domains");
         }
         catch (Exception ex)
         {
@@ -1407,13 +1446,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         {
             Console.WriteLine($"[DEBUG] Creating HAIO routing configuration...");
 
+            // Use proxy port 10820 for PAC/routing
+            int proxyPort = 10820;
+
             // Create routing rule set JSON for HAIO domains
             var haioRouteRules = new List<object>
             {
                 // Route HAIO domains through proxy
                 new
                 {
-                    remarks = "HAIO - Proxy domains from domains.txt",
+                    remarks = $"HAIO - Proxy domains from domains.txt (port {proxyPort})",
                     outboundTag = "proxy",
                     domain = domains.ToArray()
                 },
@@ -1432,13 +1474,13 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     outboundTag = "direct",
                     ip = new[] { "geoip:private" }
                 },
-                // Bypass all other domains (default direct)
+                // Direct all other traffic (everything not matching above rules)
                 new
                 {
                     remarks = "HAIO - Direct all other traffic",
                     outboundTag = "direct",
-                    domain = new[] { "geosite:cn" }, // You can modify this based on your location
-                    ip = new[] { "geoip:cn" }
+                    network = "tcp,udp"
+                    // No domain or ip filters - this catches everything else
                 }
             };
 
@@ -1449,24 +1491,32 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
             Console.WriteLine($"[DEBUG] Generated routing JSON: {routingJson}");
 
-            // Use v2rayN's routing system to add the configuration
-            // This integrates with the existing routing infrastructure
-            var routingItem = new RoutingItem
+            // Clear ALL existing routing rules first
+            Console.WriteLine($"[DEBUG] Clearing all existing routing rules...");
+            var existingRoutings = await AppManager.Instance.RoutingItems();
+            if (existingRoutings != null)
             {
-                Remarks = "HAIO Custom Domain Routing",
+                foreach (var existingRoute in existingRoutings.ToList())
+                {
+                    Console.WriteLine($"[DEBUG] Removing existing routing rule: {existingRoute.Remarks}");
+                    await ConfigHandler.RemoveRoutingItem(existingRoute);
+                }
+            }
+
+            // Create only our HAIO routing rule
+            var haioRouting = new RoutingItem
+            {
+                Remarks = $"HAIO Custom Domain Routing (port {proxyPort})",
                 RuleSet = routingJson,
-                Sort = 1, // High priority
+                Sort = 1,
                 IsActive = true
             };
 
-            // Add the routing configuration using v2rayN's ConfigHandler
-            await ConfigHandler.SaveRoutingItem(_config, routingItem);
-            
-            // Also activate this routing
-            await ConfigHandler.SetDefaultRouting(_config, routingItem);
-            
+            await ConfigHandler.SaveRoutingItem(_config, haioRouting);
+            await ConfigHandler.SetDefaultRouting(_config, haioRouting);
+
             Console.WriteLine($"[DEBUG] HAIO routing configuration added and activated successfully");
-            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains will be proxied");
+            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains will be proxied on port {proxyPort}");
         }
         catch (Exception ex)
         {
@@ -1659,20 +1709,28 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 // Ensure the selected configuration is set as default
                 await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
                 
-                // Activate Anti-Sanction (PAC mode)
-                await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.Pac, true);
+                // Do NOT enable PAC – keep system proxy unchanged per user preference
                 UpdateUIState(true);
-                
-                LogToUser("PROXY", "Anti-Sanction activated successfully in PAC mode");
+                LogToUser("PROXY", "Anti-Sanction activated (system proxy unchanged; no PAC)");
                 _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
             }
             else
             {
                 LogToUser("PROXY", "Deactivating Anti-Sanction proxy");
                 
-                // Deactivate Anti-Sanction (Clear proxy)
-                await statusBarViewModel.ChangeSystemProxyAsync(ESysProxyType.ForcedClear, true);
+                // Deactivate Anti-Sanction – keep system proxy unchanged (no auto-clear)
                 UpdateUIState(false);
+                
+                // Explicitly clear system proxy settings at OS level
+                try
+                {
+                    await SysProxyHandler.UpdateSysProxy(_config, true);
+                    LogToUser("PROXY", "System proxy cleared at OS level");
+                }
+                catch (Exception clearEx)
+                {
+                    LogToUser("ERROR", $"Failed to clear system proxy: {clearEx.Message}");
+                }
                 
                 LogToUser("PROXY", "Anti-Sanction deactivated - proxy cleared");
                 _manager?.Show(new Notification(null, "🔴 Anti-Sanction deactivated", NotificationType.Information));

@@ -46,22 +46,49 @@ public static class ConfigHandler
         if (config.Inbound == null)
         {
             config.Inbound = new List<InItem>();
-            InItem inItem = new()
+            
+            // Add SOCKS inbound
+            InItem socksItem = new()
             {
                 Protocol = EInboundProtocol.socks.ToString(),
-                LocalPort = 10808,
+                LocalPort = 10820,
                 UdpEnabled = true,
                 SniffingEnabled = true,
                 RouteOnly = false,
             };
+            config.Inbound.Add(socksItem);
 
-            config.Inbound.Add(inItem);
+            // Add HTTP mixed inbound for system proxy
+            InItem mixedItem = new()
+            {
+                Protocol = EInboundProtocol.mixed.ToString(),
+                LocalPort = 10826, // 10820 + 6 for mixed protocol
+                UdpEnabled = true,
+                SniffingEnabled = true,
+                RouteOnly = false,
+            };
+            config.Inbound.Add(mixedItem);
         }
         else
         {
             if (config.Inbound.Count > 0)
             {
                 config.Inbound.First().Protocol = EInboundProtocol.socks.ToString();
+            }
+            
+            // Ensure mixed inbound exists - add it if missing
+            var hasMixed = config.Inbound.Any(i => i.Protocol == EInboundProtocol.mixed.ToString());
+            if (!hasMixed)
+            {
+                InItem mixedItem = new()
+                {
+                    Protocol = EInboundProtocol.mixed.ToString(),
+                    LocalPort = 10826,
+                    UdpEnabled = true,
+                    SniffingEnabled = true,
+                    RouteOnly = false,
+                };
+                config.Inbound.Add(mixedItem);
             }
         }
 
