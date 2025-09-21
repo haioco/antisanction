@@ -12,6 +12,7 @@
     <Application.Styles>
         <semi:SemiTheme />
         <StyleInclude Source="Assets/GlobalStyles.axaml" />
+        <StyleInclude Source="Resources/Themes.axaml" />
         <StyleInclude Source="avares://Semi.Avalonia.DataGrid/Index.axaml" />
         <dialogHost:DialogHostStyles />
     </Application.Styles>
@@ -19,6 +20,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="Assets/GlobalResources.axaml" />
+
                 <ResourceInclude Source="Controls/AutoCompleteBox.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

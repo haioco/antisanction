@@ -2,6 +2,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -48,12 +49,24 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     private static readonly List<string> _userLogs = new();
     private static readonly object _userLogsLock = new();
 
+    // Statistics tracking
+    private readonly DispatcherTimer _statsTimer;
+
+
     public MainWindow()
     {
         InitializeComponent();
 
         _config = AppManager.Instance.Config;
         _manager = new WindowNotificationManager(TopLevel.GetTopLevel(this)) { MaxItems = 3, Position = NotificationPosition.TopRight };
+
+        // Initialize statistics timer
+        _statsTimer = new DispatcherTimer 
+        { 
+            Interval = TimeSpan.FromSeconds(1) 
+        };
+        _statsTimer.Tick += UpdateStatistics;
+        _statsTimer.Start();
 
         // Initialize HTTP client with direct connection (no proxy)
         var handler = new HttpClientHandler();
@@ -119,20 +132,20 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         UpdateUIState(false); // Start with anti-sanction OFF
         LoadConfigurations(); // Load available proxy configurations
 
-        // Wire log buttons
-        btnClearLogs.Click += (_, __) => { txtLogs.Text = string.Empty; _logBuffer.Clear(); };
-        btnCopyLogs.Click += async (_, __) =>
-        {
-            try
-            {
-                var top = TopLevel.GetTopLevel(this);
-                if (top?.Clipboard != null)
-                {
-                    await top.Clipboard.SetTextAsync(txtLogs.Text ?? string.Empty);
-                }
-            }
-            catch { }
-        };
+        // Wire log buttons (commented out for new UI)
+        // btnClearLogs.Click += (_, __) => { txtLogs.Text = string.Empty; _logBuffer.Clear(); };
+        // btnCopyLogs.Click += async (_, __) =>
+        // {
+        //     try
+        //     {
+        //         var top = TopLevel.GetTopLevel(this);
+        //         if (top?.Clipboard != null)
+        //         {
+        //             await top.Clipboard.SetTextAsync(txtLogs.Text ?? string.Empty);
+        //         }
+        //     }
+        //     catch { }
+        // };
 
         // Start log tailing
         InitLogTailing();
@@ -522,9 +535,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             var toSet = _logBuffer.ToString();
             Dispatcher.UIThread.Post(() =>
             {
-                txtLogs.Text = toSet;
+                // txtLogs.Text = toSet; // Commented out for new UI
                 // Auto-scroll to bottom
-                scrollLogs.Offset = new Avalonia.Vector(scrollLogs.Offset.X, double.MaxValue);
+                // scrollLogs.Offset = new Avalonia.Vector(scrollLogs.Offset.X, double.MaxValue);
             });
         }
     }
@@ -658,7 +671,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         try
         {
             await RequestOtp(mobile);
-            otpStatusBorder.IsVisible = true;
+            globalStatusBorder.IsVisible = true;
             txtOtpCode.IsEnabled = true;
             btnLogin.IsEnabled = true;
             ShowLoginStatus("Verification code sent successfully to your mobile", isError: false);
@@ -1206,10 +1219,23 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     Console.WriteLine($"[DEBUG] Server: {cleanTitle}, Domain: {domain}, Is Expired: {isOver}");
                     Console.WriteLine($"[DEBUG] Traffic: {totalTraffic}GB total, {totalTrafficUsage}GB used ({usagePercent}%)");
                     
+                    // Create HAIO data object to store with the configuration
+                    var haioData = new
+                    {
+                        source = "haio",
+                        totalTraffic = totalTraffic,
+                        totalTrafficUsage = totalTrafficUsage,
+                        usagePercent = usagePercent,
+                        isOver = isOver,
+                        originalTitle = cleanTitle,
+                        domain = domain,
+                        lastUpdated = DateTime.UtcNow.ToString("o")
+                    };
+                    
                     // Only add active servers (hide expired ones from UI)
                     if (!isOver)
                     {
-                        await AddTrojanConfigurationFromUrl(configUrl, displayName);
+                        await AddTrojanConfigurationFromUrl(configUrl, displayName, haioData);
                     }
                     else
                     {
@@ -1233,7 +1259,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         }
     }
 
-    private async Task AddTrojanConfigurationFromUrl(string configUrl, string serverName)
+    private async Task AddTrojanConfigurationFromUrl(string configUrl, string serverName, object? haioData = null)
     {
         try
         {
@@ -1242,8 +1268,14 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Check if this server already exists
             if (await IsServerAlreadyExists(configUrl, serverName))
             {
-                Console.WriteLine($"[DEBUG] Server already exists, skipping: {serverName}");
-                Logging.SaveLog($"HAIO server already exists, skipping: {serverName}");
+                Console.WriteLine($"[DEBUG] Server already exists, updating with fresh HAIO data: {serverName}");
+                Logging.SaveLog($"HAIO server already exists, updating HAIO data: {serverName}");
+                
+                // Update existing server with HAIO data even if it already exists
+                if (haioData != null)
+                {
+                    await StoreHaioDataForServer(configUrl, serverName, haioData);
+                }
                 return;
             }
 
@@ -1269,12 +1301,65 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
             await ViewModel.AddServerViaClipboardAsync(urlWithRemark);
 
+            // Store HAIO data in the added configuration
+            if (haioData != null)
+            {
+                await StoreHaioDataForServer(configUrl, serverName, haioData);
+            }
+
             Console.WriteLine($"[DEBUG] Successfully added Trojan server: {serverName}");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[DEBUG] Error adding Trojan configuration: {ex.Message}");
             Logging.SaveLog($"Failed to add Trojan server {serverName}: {ex.Message}");
+        }
+    }
+
+    private async Task StoreHaioDataForServer(string configUrl, string serverName, object haioData)
+    {
+        try
+        {
+            // Find the server that was just added
+            var config = AppManager.Instance.Config;
+            var servers = await AppManager.Instance.ProfileItems(config.SubIndexId);
+            
+            // Look for a server with matching address/port from the config URL
+            var uri = new Uri(configUrl);
+            var targetAddress = uri.Host;
+            var targetPort = uri.Port;
+            
+            var matchingServer = servers?.FirstOrDefault(s => 
+                s.Address == targetAddress && 
+                s.Port == targetPort &&
+                s.Remarks?.Contains(serverName.Split(' ')[0]) == true);
+            
+            if (matchingServer != null)
+            {
+                // Get the full ProfileItem
+                var fullProfileItem = await AppManager.Instance.GetProfileItem(matchingServer.IndexId);
+                if (fullProfileItem != null)
+                {
+                    // Store HAIO data in the Extra field as JSON
+                    var serializedData = JsonUtils.Serialize(haioData);
+                    fullProfileItem.Extra = serializedData;
+                    
+                    Console.WriteLine($"[DEBUG] Serialized HAIO data: {serializedData}");
+                    
+                    // Update the profile item using ConfigHandler
+                    await ConfigHandler.AddServer(config, fullProfileItem);
+                    
+                    Console.WriteLine($"[DEBUG] Stored HAIO data for server: {serverName}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] Could not find matching server to store HAIO data: {serverName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error storing HAIO data: {ex.Message}");
         }
     }
 
@@ -1678,6 +1763,87 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         }
     }
 
+    private async void BtnUpdateDomains_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Console.WriteLine("[DEBUG] Update Domains button clicked");
+            
+            // Show loading state on button
+            if (sender is Button button)
+            {
+                button.IsEnabled = false;
+                button.Content = new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = {
+                        new TextBlock { Text = "⏳", FontSize = 12 },
+                        new TextBlock { Text = "Updating...", FontSize = 12 }
+                    }
+                };
+            }
+
+            // Force re-download of domains.txt
+            string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+            
+            // Delete existing file to force re-download
+            if (File.Exists(domainsFilePath))
+            {
+                File.Delete(domainsFilePath);
+                Console.WriteLine("[DEBUG] Deleted existing domains.txt file");
+            }
+
+            // Download fresh domains.txt
+            await DownloadDomainsFile(domainsFilePath);
+            
+            // Re-setup routing rules with new domains
+            if (File.Exists(domainsFilePath))
+            {
+                await SetupHaioRoutingRules();
+                Console.WriteLine("[DEBUG] Successfully updated domains and routing rules");
+                
+                // Show success message (optional)
+                // You could add a toast notification here if desired
+            }
+
+            // Restore button state
+            if (sender is Button btn)
+            {
+                btn.IsEnabled = true;
+                btn.Content = new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = {
+                        new TextBlock { Text = "🔄", FontSize = 12 },
+                        new TextBlock { Text = "Update Domains", FontSize = 12 }
+                    }
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Failed to update domains: {ex.Message}");
+            Logging.SaveLog($"Error updating domains: {ex.Message}");
+            
+            // Restore button state on error
+            if (sender is Button btn)
+            {
+                btn.IsEnabled = true;
+                btn.Content = new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = {
+                        new TextBlock { Text = "🔄", FontSize = 12 },
+                        new TextBlock { Text = "Update Domains", FontSize = 12 }
+                    }
+                };
+            }
+        }
+    }
+
     #endregion HAIO Authentication
 
     #region Simplified UI Event Handlers
@@ -1709,10 +1875,22 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 // Ensure the selected configuration is set as default
                 await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
                 
-                // Do NOT enable PAC – keep system proxy unchanged per user preference
-                UpdateUIState(true);
-                LogToUser("PROXY", "Anti-Sanction activated (system proxy unchanged; no PAC)");
-                _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
+                // Set system proxy to use the local proxy server
+                try
+                {
+                    await SysProxyHandler.UpdateSysProxy(_config, false);
+                    LogToUser("PROXY", "System proxy configured at OS level");
+                    UpdateUIState(true);
+                    LogToUser("PROXY", "Anti-Sanction activated with system proxy");
+                    _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
+                }
+                catch (Exception proxyEx)
+                {
+                    LogToUser("ERROR", $"Failed to set system proxy: {proxyEx.Message}");
+                    UpdateUIState(true); // Still show as active since core connection might work
+                    LogToUser("PROXY", "Anti-Sanction activated (core only - manual proxy setup required)");
+                    _manager?.Show(new Notification(null, $"⚠️ Connected but proxy setup failed: {proxyEx.Message}", NotificationType.Warning));
+                }
             }
             else
             {
@@ -1764,16 +1942,46 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 txtConnectionStatus.Text = "🟢 Anti-Sanction is ON";
                 txtConnectionStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(40, 167, 69));
                 
+                // Update main status display
+                txtMainStatus.Text = "Anti-Sanction Enabled";
+                txtMainStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(40, 167, 69));
+                mainStatusIcon.Text = "🟢";
+                
+                // Update top right status indicator
+                statusPulse.Fill = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(40, 167, 69));
+                
+                // Update OS Proxy status
+                txtOSProxy.Text = "Enabled";
+                txtOSProxy.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(40, 167, 69));
+                
+                // Update toggle button for active state
+                btnToggleAntiSanction.IsChecked = true;
+                toggleIcon.Text = "🟢";
+                toggleText.Text = "Protection Active";
+                toggleSubtext.Text = "Click to disable anti-sanction";
+                toggleSubtext.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(200, 255, 200));
+                
                 // Show information about selected configuration
                 if (cmbConfigurations.SelectedItem is ProfileItemModel selectedConfig)
                 {
                     txtStatusDescription.Text = $"Connected via {selectedConfig.ConfigTypeDisplay}: {selectedConfig.Remarks}";
                     txtServerInfo.Text = $"Active: {selectedConfig.Address}:{selectedConfig.Port}";
+                    
+                    // Update account info with API data
+                    var (configTitle, totalTraffic, usedTraffic) = GetHaioTrafficInfo(selectedConfig);
+                    txtConfigTitle.Text = configTitle;
+                    txtTotalTraffic.Text = totalTraffic;
+                    txtUsedTraffic.Text = usedTraffic;
                 }
                 else
                 {
                     txtStatusDescription.Text = "Your connection is protected through secure proxy";
                     txtServerInfo.Text = "PAC Mode Active - Automatic server selection";
+                    
+                    // Clear account info when no config selected
+                    txtConfigTitle.Text = "N/A";
+                    txtTotalTraffic.Text = "N/A";
+                    txtUsedTraffic.Text = "N/A";
                 }
             }
             else
@@ -1781,19 +1989,49 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 txtConnectionStatus.Text = "🔴 Anti-Sanction is OFF";
                 txtConnectionStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 53, 69));
                 
+                // Update main status display
+                txtMainStatus.Text = "Anti-Sanction Disabled";
+                txtMainStatus.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 53, 69));
+                mainStatusIcon.Text = "🔴";
+                
+                // Update top right status indicator
+                statusPulse.Fill = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 53, 69));
+                
+                // Update OS Proxy status
+                txtOSProxy.Text = "Disabled";
+                txtOSProxy.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 53, 69));
+                
+                // Update toggle button for inactive state
+                btnToggleAntiSanction.IsChecked = false;
+                toggleIcon.Text = "🔴";
+                toggleText.Text = "Activate Protection";
+                toggleSubtext.Text = "Click to enable anti-sanction";
+                toggleSubtext.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(254, 226, 226));
+                
                 // Show information about selected configuration in ready state
                 if (cmbConfigurations.SelectedItem is ProfileItemModel selectedConfig)
                 {
                     txtStatusDescription.Text = $"Ready to activate {selectedConfig.ConfigTypeDisplay}: {selectedConfig.Remarks}";
                     txtServerInfo.Text = $"Selected: {selectedConfig.Address}:{selectedConfig.Port}";
+                    
+                    // Show account info even when inactive
+                    var (configTitle, totalTraffic, usedTraffic) = GetHaioTrafficInfo(selectedConfig);
+                    txtConfigTitle.Text = configTitle;
+                    txtTotalTraffic.Text = totalTraffic;
+                    txtUsedTraffic.Text = usedTraffic;
                 }
                 else
                 {
                     txtStatusDescription.Text = "Select a configuration and click to activate secure proxy protection";
                     txtServerInfo.Text = "No configuration selected";
+                    
+                    // Clear account info when no config selected
+                    txtConfigTitle.Text = "N/A";
+                    txtTotalTraffic.Text = "N/A";
+                    txtUsedTraffic.Text = "N/A";
                 }
                 
-                txtSpeedInfo.Text = "";
+                // txtSpeedInfo.Text = ""; // Commented out for new UI
             }
         });
     }
@@ -2092,4 +2330,194 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
     }
 
     #endregion User-Visible Logging System
+
+    #region Statistics
+
+    private void UpdateStatistics(object? sender, EventArgs e)
+    {
+        try
+        {
+            var statusBarViewModel = Locator.Current.GetService<StatusBarViewModel>();
+            if (statusBarViewModel == null) return;
+
+
+
+            // Parse the existing SpeedProxyDisplay to extract speeds
+            // SpeedProxyDisplay format: "mixed : 1.2 KB/s↑ | 3.4 KB/s↓"
+            var speedDisplay = statusBarViewModel.SpeedProxyDisplay ?? "";
+            
+            if (string.IsNullOrEmpty(speedDisplay))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // Check if proxy is active based on toggle button state
+                    if (btnToggleAntiSanction.IsChecked == true)
+                    {
+                        txtDownload.Text = "0 B/s";
+                        txtUpload.Text = "0 B/s";
+                    }
+                    else
+                    {
+                        txtDownload.Text = "No Data";
+                        txtUpload.Text = "No Data";
+                    }
+                });
+                return;
+            }
+
+            // Extract upload and download speeds from the display string
+            ParseSpeedDisplay(speedDisplay);
+
+
+        }
+        catch (Exception ex)
+        {
+            // Silently handle errors in statistics updates
+            Console.WriteLine($"Statistics update error: {ex.Message}");
+        }
+    }
+
+    private void ParseSpeedDisplay(string speedDisplay)
+    {
+        try
+        {
+            // Format: "mixed : 1.2 KB/s↑ | 3.4 KB/s↓"
+            // Split by "|" to get upload and download parts
+            var parts = speedDisplay.Split('|');
+            string uploadSpeed = "0 B/s";
+            string downloadSpeed = "0 B/s";
+            
+            if (parts.Length >= 2)
+            {
+                // Extract upload speed: "mixed : 1.2 KB/s↑" -> "1.2 KB/s"
+                var uploadPart = parts[0].Trim();
+                var colonIndex = uploadPart.LastIndexOf(':');
+                if (colonIndex >= 0)
+                {
+                    var uploadText = uploadPart.Substring(colonIndex + 1).Trim();
+                    // Remove the ↑ symbol
+                    uploadSpeed = uploadText.Replace("↑", "").Trim();
+                }
+
+                // Extract download speed: "3.4 KB/s↓" -> "3.4 KB/s"
+                var downloadPart = parts[1].Trim();
+                // Remove the ↓ symbol
+                downloadSpeed = downloadPart.Replace("↓", "").Trim();
+            }
+
+            // Update UI on UI thread
+            Dispatcher.UIThread.Post(() =>
+            {
+                txtUpload.Text = uploadSpeed;
+                txtDownload.Text = downloadSpeed;
+            });
+        }
+        catch
+        {
+            // Fallback: show default values
+            Dispatcher.UIThread.Post(() =>
+            {
+                txtUpload.Text = "0 B/s";
+                txtDownload.Text = "0 B/s";
+            });
+        }
+    }
+
+    private (string configTitle, string totalTraffic, string usedTraffic) GetHaioTrafficInfo(ProfileItemModel selectedConfig)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] GetHaioTrafficInfo called for server: {selectedConfig.Remarks}");
+            Console.WriteLine($"[DEBUG] Server Extra field: '{selectedConfig.Extra ?? "NULL"}'");
+            
+            // Try to get HAIO data from Extra field first
+            if (!string.IsNullOrEmpty(selectedConfig.Extra))
+            {
+                Console.WriteLine($"[DEBUG] Found Extra data for server: {selectedConfig.Extra}");
+                
+                // Try to parse as JSON object first
+                try
+                {
+                    using var document = JsonDocument.Parse(selectedConfig.Extra);
+                    var root = document.RootElement;
+                    
+                    if (root.TryGetProperty("source", out var sourceElement) && 
+                        sourceElement.GetString() == "haio")
+                    {
+                        var configTitle = selectedConfig.Remarks ?? "N/A";
+                        if (root.TryGetProperty("originalTitle", out var titleElement))
+                        {
+                            configTitle = titleElement.GetString() ?? selectedConfig.Remarks ?? "N/A";
+                        }
+                        
+                        var totalTraffic = "N/A";
+                        if (root.TryGetProperty("totalTraffic", out var totalTrafficElement))
+                        {
+                            totalTraffic = $"{totalTrafficElement.GetDecimal()} GB";
+                        }
+                        
+                        var usedTraffic = "N/A";
+                        if (root.TryGetProperty("totalTrafficUsage", out var usageElement) && 
+                            root.TryGetProperty("usagePercent", out var percentElement))
+                        {
+                            usedTraffic = $"{usageElement.GetString()} GB ({percentElement.GetString()}%)";
+                        }
+                        
+                        Console.WriteLine($"[DEBUG] HAIO traffic info - Title: {configTitle}, Total: {totalTraffic}, Used: {usedTraffic}");
+                        return (configTitle, totalTraffic, usedTraffic);
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    Console.WriteLine($"[DEBUG] Failed to parse HAIO JSON data: {jsonEx.Message}");
+                }
+            }
+            
+            // Fallback to local traffic statistics if no HAIO data
+            var configTitleFallback = selectedConfig.Remarks ?? "N/A";
+            var totalTrafficFallback = FormatTrafficSize(selectedConfig.TotalUp, selectedConfig.TotalDown);
+            var todayTrafficFallback = FormatTrafficSize(selectedConfig.TodayUp, selectedConfig.TodayDown);
+            
+            Console.WriteLine($"[DEBUG] Using fallback traffic info - Title: {configTitleFallback}, Total: {totalTrafficFallback}, Today: {todayTrafficFallback}");
+            return (configTitleFallback, totalTrafficFallback, todayTrafficFallback);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error getting HAIO traffic info: {ex.Message}");
+            // Fallback to basic info on error
+            return (selectedConfig.Remarks ?? "N/A", "N/A", "N/A");
+        }
+    }
+
+    private string FormatTrafficSize(string? upTraffic, string? downTraffic)
+    {
+        try
+        {
+            // If both values are available, show combined traffic
+            if (!string.IsNullOrEmpty(upTraffic) && !string.IsNullOrEmpty(downTraffic))
+            {
+                return $"↑{upTraffic} ↓{downTraffic}";
+            }
+            
+            // If only one value is available, show it
+            if (!string.IsNullOrEmpty(upTraffic))
+            {
+                return $"↑{upTraffic}";
+            }
+            
+            if (!string.IsNullOrEmpty(downTraffic))
+            {
+                return $"↓{downTraffic}";
+            }
+            
+            // If no traffic data available
+            return "No Data";
+        }
+        catch
+        {
+            return "N/A";
+        }
+    }
+
+    #endregion Statistics
 }

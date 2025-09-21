@@ -10,14 +10,17 @@
     xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
     xmlns:models="clr-namespace:ServiceLib.Models;assembly=ServiceLib"
     Title="HAIO Anti-Sanction"
-    Width="1000"
-    Height="600"
-    MinWidth="900"
+    Width="1400"
+    Height="900"
+    MinWidth="1200"
+    MinHeight="800"
     x:DataType="vms:MainWindowViewModel"
     Icon="/Assets/haio-antisanction.ico"
     ShowInTaskbar="True"
     WindowStartupLocation="CenterScreen"
+    Background="{DynamicResource MainBackgroundBrush}"
     mc:Ignorable="d">
+
     <dialogHost:DialogHost
         Background="Gray"
         CloseOnClickAway="True"
@@ -28,9 +31,7 @@
                 x:Name="haioLoginDialog"
                 Width="460"
                 Height="520"
-                Background="White"
-                BoxShadow="0 8 32 #80000000"
-                CornerRadius="12"
+                Classes="ModernCard"
                 IsVisible="True">
                 <Grid Margin="30">
                     <Grid.RowDefinitions>
@@ -44,13 +45,13 @@
                         <TextBlock
                             FontSize="24"
                             FontWeight="Bold"
-                            Foreground="#2563EB"
+                            Foreground="{DynamicResource AccentText}"
                             HorizontalAlignment="Center"
                             Text="HAIO Authentication" />
                         <TextBlock
                             Margin="0,8,0,0"
                             FontSize="14"
-                            Foreground="#64748B"
+                            Foreground="{DynamicResource SecondaryText}"
                             HorizontalAlignment="Center"
                             TextWrapping="Wrap"
                             Text="Please login to access anti-sanction proxy services" />
@@ -62,105 +63,23 @@
                         <TabItem Header="Mobile OTP" FontSize="13" FontWeight="Medium">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="15" Spacing="20">
-                                    <!-- Mobile Number Section -->
                                     <StackPanel Spacing="8">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Foreground="#374151"
-                                            Text="Mobile Number" />
-                                        <TextBox
-                                            x:Name="txtOtpMobile"
-                                            Height="40"
-                                            Padding="12,10"
-                                            FontSize="14"
-                                            Watermark="09123456789 or +989123456789"
-                                            CornerRadius="6"
-                                            BorderBrush="#D1D5DB"
-                                            BorderThickness="1"
-                                            KeyDown="TxtOtpMobile_KeyDown" />
-                                        <TextBlock
-                                            FontSize="12"
-                                            Foreground="#6B7280"
-                                            Text="Enter your Iranian mobile number"
-                                            TextWrapping="Wrap" />
+                                        <TextBlock Text="Mobile Number" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                                        <TextBox x:Name="txtOtpMobile" Classes="ModernTextBox" Height="40"
+                                                 Watermark="09123456789 or +989123456789" KeyDown="TxtOtpMobile_KeyDown" />
                                     </StackPanel>
 
-                                    <!-- Request OTP Button -->
-                                    <Button
-                                        x:Name="btnRequestOtp"
-                                        Height="44"
-                                        HorizontalAlignment="Stretch"
-                                        Background="#3B82F6"
-                                        Content="Send Verification Code"
-                                        CornerRadius="6"
-                                        FontSize="14"
-                                        FontWeight="Medium"
-                                        Foreground="White" />
+                                    <Button x:Name="btnRequestOtp" Classes="ModernButton" Height="44"
+                                            Background="#17A2B8" Content="Send Verification Code" />
 
-                                    <!-- Status Message -->
-                                    <Border
-                                        x:Name="otpStatusBorder"
-                                        Background="#DBEAFE"
-                                        BorderBrush="#3B82F6"
-                                        BorderThickness="1"
-                                        CornerRadius="6"
-                                        IsVisible="False"
-                                        Padding="12">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock
-                                                FontSize="16"
-                                                Text="✓" />
-                                            <TextBlock
-                                                x:Name="lblOtpStatus"
-                                                FontSize="13"
-                                                Foreground="#1D4ED8"
-                                                Text="Verification code sent to your mobile"
-                                                TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- OTP Code Section -->
                                     <StackPanel Spacing="8">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Foreground="#374151"
-                                            Text="Verification Code" />
-                                        <TextBox
-                                            x:Name="txtOtpCode"
-                                            Height="40"
-                                            Padding="12,10"
-                                            FontSize="16"
-                                            FontWeight="Medium"
-                                            IsEnabled="False"
-                                            LetterSpacing="1"
-                                            MaxLength="8"
-                                            Watermark="ABC123"
-                                            CornerRadius="6"
-                                            BorderBrush="#D1D5DB"
-                                            BorderThickness="1"
-                                            HorizontalContentAlignment="Center"
-                                            KeyDown="TxtOtpCode_KeyDown" />
-                                        <TextBlock
-                                            FontSize="12"
-                                            Foreground="#6B7280"
-                                            Text="Enter the alphanumeric code sent to your mobile (4-8 characters)"
-                                            TextWrapping="Wrap" />
+                                        <TextBlock Text="Verification Code" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                                        <TextBox x:Name="txtOtpCode" Classes="ModernTextBox" Height="40"
+                                                 MaxLength="8" Watermark="ABC123" IsEnabled="False" KeyDown="TxtOtpCode_KeyDown" />
                                     </StackPanel>
 
-                                    <!-- Login Button -->
-                                    <Button
-                                        x:Name="btnLogin"
-                                        Height="44"
-                                        HorizontalAlignment="Stretch"
-                                        Background="#10B981"
-                                        Content="Verify &amp; Login"
-                                        CornerRadius="6"
-                                        FontSize="14"
-                                        FontWeight="Medium"
-                                        Foreground="White"
-                                        IsEnabled="False" />
+                                    <Button x:Name="btnLogin" Classes="ModernButton" Height="44"
+                                            Background="#28A745" Content="Verify &amp; Login" IsEnabled="False" />
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>
@@ -169,299 +88,302 @@
                         <TabItem Header="Email Login" FontSize="13" FontWeight="Medium">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="15" Spacing="20">
-                                    <!-- Email Section -->
                                     <StackPanel Spacing="8">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Foreground="#374151"
-                                            Text="Email Address" />
-                                        <TextBox
-                                            x:Name="txtPasswordEmail"
-                                            Height="40"
-                                            Padding="12,10"
-                                            FontSize="14"
-                                            Watermark="your.email@example.com"
-                                            CornerRadius="6"
-                                            BorderBrush="#D1D5DB"
-                                            BorderThickness="1"
-                                            KeyDown="TxtPasswordEmail_KeyDown" />
+                                        <TextBlock Text="Email Address" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                                        <TextBox x:Name="txtPasswordEmail" Classes="ModernTextBox" Height="40"
+                                                 Watermark="your.email@example.com" KeyDown="TxtPasswordEmail_KeyDown" />
                                     </StackPanel>
 
-                                    <!-- Password Section -->
                                     <StackPanel Spacing="8">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Foreground="#374151"
-                                            Text="Password" />
-                                        <TextBox
-                                            x:Name="txtPassword"
-                                            Height="40"
-                                            Padding="12,10"
-                                            FontSize="14"
-                                            PasswordChar="●"
-                                            Watermark="Enter your password"
-                                            CornerRadius="6"
-                                            BorderBrush="#D1D5DB"
-                                            BorderThickness="1"
-                                            KeyDown="TxtPassword_KeyDown" />
+                                        <TextBlock Text="Password" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                                        <TextBox x:Name="txtPassword" Classes="ModernTextBox" Height="40"
+                                                 PasswordChar="●" Watermark="Enter your password" KeyDown="TxtPassword_KeyDown" />
                                     </StackPanel>
 
-                                    <!-- Login Button -->
-                                    <Button
-                                        x:Name="btnLoginPassword"
-                                        Height="44"
-                                        HorizontalAlignment="Stretch"
-                                        Background="#8B5CF6"
-                                        Content="Login with Email"
-                                        CornerRadius="6"
-                                        FontSize="14"
-                                        FontWeight="Medium"
-                                        Foreground="White" />
+                                    <Button x:Name="btnLoginPassword" Classes="ModernButton" Height="44"
+                                            Background="#8B5CF6" Content="Login with Email" />
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>
                     </TabControl>
 
-                    <!-- Status and Actions -->
+                    <!-- Footer -->
                     <StackPanel Grid.Row="2" Margin="0,25,0,0" Spacing="15">
-                        <!-- Global Status Message -->
-                        <Border
-                            x:Name="globalStatusBorder"
-                            Background="#FEF2F2"
-                            BorderBrush="#EF4444"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            IsVisible="False"
-                            Padding="12">
-                            <TextBlock
-                                x:Name="lblLoginStatus"
-                                FontSize="13"
-                                Foreground="#DC2626"
-                                HorizontalAlignment="Center"
-                                Text=""
-                                TextWrapping="Wrap" />
+                        <Border x:Name="globalStatusBorder" Classes="ModernCard" IsVisible="False" Padding="12">
+                            <TextBlock x:Name="lblLoginStatus" FontSize="13" Foreground="{DynamicResource ErrorBrush}" 
+                                       HorizontalAlignment="Center" Text="" TextWrapping="Wrap" />
                         </Border>
 
-                        <!-- Skip Login Button -->
-                        <Button
-                            x:Name="btnSkipLogin"
-                            Height="36"
-                            HorizontalAlignment="Center"
-                            Background="Transparent"
-                            BorderBrush="#D1D5DB"
-                            BorderThickness="1"
-                            Content="Skip Login (Limited Features)"
-                            CornerRadius="6"
-                            FontSize="12"
-                            Foreground="#6B7280"
-                            Padding="16,8" />
-
-                        <!-- Footer Text -->
-                        <TextBlock
-                            FontSize="11"
-                            Foreground="#9CA3AF"
-                            HorizontalAlignment="Center"
-                            Text="HAIO provides secure proxy services for Iranian users"
-                            TextWrapping="Wrap" />
+                        <Button x:Name="btnSkipLogin" Classes="ModernButton" Height="36"
+                                Background="Transparent" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                Content="Skip Login (Limited Features)" Foreground="{DynamicResource SecondaryText}" />
                     </StackPanel>
                 </Grid>
             </Border>
         </dialogHost:DialogHost.DialogContent>
-        <!-- Simplified Single Button Interface -->
+
+        <!-- Main UI -->
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             
-            <!-- Simple Header with Close Button -->
-            <Border Grid.Row="0" Background="#F8F9FA" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1" Padding="20,15">
-                <DockPanel>
-                    <Button x:Name="btnCloseApp" 
-                            DockPanel.Dock="Right"
-                            Width="30" 
-                            Height="30"
-                            Background="#DC3545"
-                            Foreground="White"
-                            Content="✕"
-                            CornerRadius="15"
-                            FontSize="12"
-                            FontWeight="Bold"
-                            ToolTip.Tip="Exit Application" />
-                    <TextBlock Text="HAIO Anti-Sanction" 
-                               FontSize="18" 
-                               FontWeight="SemiBold" 
-                               Foreground="#2C3E50"
-                               VerticalAlignment="Center" />
-                </DockPanel>
+            <!-- Header -->
+            <Border Grid.Row="0" Classes="ModernCard" Margin="20,20,20,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- App Icon and Title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                        <Border Width="48" Height="48" CornerRadius="12" Background="#4F46E5" Padding="8">
+                            <TextBlock Text="🛡️" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="HAIO Anti-Sanction" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}" />
+                            <TextBlock Text="Secure Proxy Protection" FontSize="14" Foreground="{DynamicResource SecondaryText}" />
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Status Indicator -->
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Canvas Width="20" Height="20">
+                            <Ellipse x:Name="statusPulse" Width="20" Height="20" Fill="#DC3545" Classes="PulseAnimation" />
+                        </Canvas>
+                    </StackPanel>
+                    
+                    <!-- Window Controls -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <ToggleButton x:Name="btnToggleTheme" Width="32" Height="32" Background="#6B7280" 
+                                      Content="🌙" CornerRadius="6" FontWeight="Bold" ToolTip.Tip="Toggle Dark/Light Theme">
+                            <ToggleButton.Styles>
+                                <Style Selector="ToggleButton:checked">
+                                    <Setter Property="Content" Value="☀️" />
+                                    <Setter Property="Background" Value="#F59E0B" />
+                                </Style>
+                            </ToggleButton.Styles>
+                        </ToggleButton>
+                        <Button Content="─" Width="32" Height="32" Background="#F59E0B" Foreground="White" 
+                                CornerRadius="6" FontWeight="Bold" ToolTip.Tip="Minimize" />
+                        <Button x:Name="btnCloseApp" Content="✕" Width="32" Height="32" Background="#EF4444" 
+                                Foreground="White" CornerRadius="6" FontWeight="Bold" ToolTip.Tip="Close" />
+                    </StackPanel>
+                </Grid>
             </Border>
             
-            <!-- Main Content Area with Single Toggle Button -->
-            <Grid Grid.Row="1">
-                <StackPanel HorizontalAlignment="Center" 
-                           VerticalAlignment="Center" 
-                           Spacing="30">
-                    
-                    <!-- Status Display -->
-                    <StackPanel HorizontalAlignment="Center" Spacing="15">
-                        <TextBlock x:Name="txtConnectionStatus"
-                                   Text="🔴 Anti-Sanction is OFF"
-                                   FontSize="24"
-                                   FontWeight="Medium"
-                                   Foreground="#DC3545"
-                                   HorizontalAlignment="Center" />
-                        
-                        <TextBlock x:Name="txtStatusDescription"
-                                   Text="Select a configuration and click to activate secure proxy protection"
-                                   FontSize="14"
-                                   Foreground="#6C757D"
-                                   HorizontalAlignment="Center"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                    
-                    <!-- Configuration Selection -->
-                    <StackPanel HorizontalAlignment="Center" Spacing="12">
-                        <TextBlock Text="📋 Select Configuration:"
-                                   FontSize="16"
-                                   FontWeight="Medium"
-                                   Foreground="#495057"
-                                   HorizontalAlignment="Center" />
-                        
-                        <ComboBox x:Name="cmbConfigurations"
-                                  Width="350"
-                                  Height="40"
-                                  FontSize="14"
-                                  HorizontalAlignment="Center"
-                                  PlaceholderText="Choose a proxy configuration..."
-                                  Background="White"
-                                  BorderBrush="#DEE2E6"
-                                  BorderThickness="1"
-                                  CornerRadius="6"
-                                  Padding="12,8"
-                                  SelectionChanged="CmbConfigurations_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate DataType="models:ProfileItemModel">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding ConfigTypeDisplay}"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#6C757D"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Remarks}"
-                                                   FontSize="14"
-                                                   FontWeight="Medium"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="-"
-                                                   FontSize="12"
-                                                   Foreground="#ADB5BD"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Address}"
-                                                   FontSize="12"
-                                                   Foreground="#6C757D"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text=":"
-                                                   FontSize="12"
-                                                   Foreground="#6C757D"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Port}"
-                                                   FontSize="12"
-                                                   Foreground="#6C757D"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-                            <Button x:Name="btnRefreshConfigs"
-                                    Content="🔄 Refresh"
-                                    FontSize="12"
-                                    Padding="10,6"
-                                    Background="#17A2B8"
-                                    Foreground="White"
-                                    CornerRadius="4"
-                                    Click="BtnRefreshConfigs_Click" />
-                            <TextBlock x:Name="txtConfigCount"
-                                       Text="No configurations loaded"
-                                       FontSize="12"
-                                       Foreground="#6C757D"
-                                       VerticalAlignment="Center" />
+            <!-- Main Content -->
+            <Grid Grid.Row="1" Margin="20,0,20,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="300" />
+                </Grid.ColumnDefinitions>
+                
+                <!-- Left Panel -->
+                <StackPanel Grid.Column="0" Spacing="16">
+                    <!-- Connection Status -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="🔗 Connection Status" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                            <TextBlock x:Name="txtConnectionStatus" Text="Disconnected" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource ErrorBrush}" />
+                            <TextBlock x:Name="txtServerInfo" Text="No server selected" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
                         </StackPanel>
-                    </StackPanel>
+                    </Border>
                     
-                    <!-- Main Toggle Button -->
-                    <ToggleButton x:Name="btnToggleAntiSanction"
-                                  Width="200"
-                                  Height="60"
-                                  Background="#28A745"
-                                  Foreground="White"
-                                  Content="🛡️ Activate Anti-Sanction"
-                                  CornerRadius="30"
-                                  FontSize="16"
-                                  FontWeight="SemiBold"
-                                  HorizontalContentAlignment="Center"
-                                  VerticalContentAlignment="Center">
-                        <ToggleButton.Styles>
-                            <Style Selector="ToggleButton:checked">
-                                <Setter Property="Background" Value="#DC3545" />
-                                <Setter Property="Content" Value="🛡️ Deactivate Anti-Sanction" />
-                            </Style>
-                            <Style Selector="ToggleButton:pointerover">
-                                <Setter Property="Background" Value="#218838" />
-                            </Style>
-                            <Style Selector="ToggleButton:checked:pointerover">
-                                <Setter Property="Background" Value="#C82333" />
-                            </Style>
-                        </ToggleButton.Styles>
-                    </ToggleButton>
+                    <!-- Statistics -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="📊 Statistics" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                            <StackPanel Spacing="8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="⬇️ Download" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtDownload" Grid.Column="1" Text="0 B/s" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="⬆️ Upload" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtUpload" Grid.Column="1" Text="0 B/s" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                
+                <!-- Center Panel -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="20" Margin="10,0">
+                    <!-- Main Status -->
+                    <Border Classes="GlassCard" Padding="30">
+                        <StackPanel HorizontalAlignment="Center" Spacing="24">
+                            <Border Width="120" Height="120" CornerRadius="60" Background="{DynamicResource PanelBackground}" 
+                                    HorizontalAlignment="Center" Padding="20">
+                                <TextBlock x:Name="mainStatusIcon" Text="🔴" FontSize="60" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            
+                            <StackPanel HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock x:Name="txtMainStatus" Text="Anti-Sanction Disabled" 
+                                           FontSize="28" FontWeight="Bold" Foreground="{DynamicResource PrimaryText}" 
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="txtStatusDescription" 
+                                           Text="Configure your connection and activate protection" 
+                                           FontSize="16" Foreground="{DynamicResource SecondaryText}" HorizontalAlignment="Center" 
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     
-                    <!-- Connection Info -->
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <TextBlock x:Name="txtServerInfo"
-                                   Text="Ready to connect"
-                                   FontSize="12"
-                                   Foreground="#6C757D"
-                                   HorizontalAlignment="Center" />
-                        
-                        <TextBlock x:Name="txtSpeedInfo"
-                                   Text=""
-                                   FontSize="11"
-                                   Foreground="#6C757D"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
+                    <!-- Configuration -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="⚙️ Proxy Configuration" FontSize="18" FontWeight="Bold" 
+                                       Foreground="{DynamicResource PrimaryText}" HorizontalAlignment="Center" />
+                            
+                            <ComboBox x:Name="cmbConfigurations" Classes="ModernComboBox" Height="48" 
+                                      PlaceholderText="🔍 Choose a proxy configuration..."
+                                      SelectionChanged="CmbConfigurations_SelectionChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate DataType="models:ProfileItemModel">
+                                        <StackPanel Spacing="4">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Border Background="#4F46E5" CornerRadius="4" Padding="4,2">
+                                                    <TextBlock Text="{Binding ConfigTypeDisplay}" FontSize="10" 
+                                                               FontWeight="Bold" Foreground="White" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Remarks}" FontSize="14" 
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                                            </StackPanel>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource SecondaryText}">
+                                                <Run Text="{Binding Address}" />
+                                                <Run Text=":" />
+                                                <Run Text="{Binding Port}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                                <Button x:Name="btnRefreshConfigs" Classes="ModernButton" 
+                                        Background="#06B6D4" Padding="12,8" Click="BtnRefreshConfigs_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="🔄" FontSize="14" />
+                                        <TextBlock Text="Refresh" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock x:Name="txtConfigCount" Text="No configurations loaded" 
+                                           FontSize="12" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     
+                    <!-- Toggle Button -->
+                    <Border Padding="20" HorizontalAlignment="Center">
+                        <ToggleButton x:Name="btnToggleAntiSanction" Width="280" Height="80" 
+                                      CornerRadius="40">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="56" Height="56" CornerRadius="28" Background="White">
+                                    <TextBlock x:Name="toggleIcon" Text="🔴" FontSize="32" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="toggleText" Text="Activate Protection" 
+                                               FontSize="18" FontWeight="Bold" Foreground="White" />
+                                    <TextBlock x:Name="toggleSubtext" Text="Click to enable anti-sanction" 
+                                               FontSize="12" Foreground="#FEE2E2" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ToggleButton>
+                    </Border>
+                </StackPanel>
+                
+                <!-- Right Panel -->
+                <StackPanel Grid.Column="2" Spacing="16">
+                    <!-- System Info -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="💻 System Info" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                            <StackPanel Spacing="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="OS Proxy" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtOSProxy" Grid.Column="1" Text="Disabled" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Account Info -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="📊 Account Info" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                            <StackPanel Spacing="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Config Title" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtConfigTitle" Grid.Column="1" Text="N/A" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Total Traffic" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtTotalTraffic" Grid.Column="1" Text="N/A" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Used Traffic" FontSize="12" Foreground="{DynamicResource SecondaryText}" />
+                                    <TextBlock x:Name="txtUsedTraffic" Grid.Column="1" Text="N/A" FontSize="12" FontWeight="Medium" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Quick Actions -->
+                    <Border Classes="ModernCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="⚡ Quick Actions" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryText}" />
+                            <StackPanel Spacing="8">
+                                <Button Classes="ModernButton" Background="#17A2B8" 
+                                        HorizontalAlignment="Stretch" Height="36" 
+                                        Click="BtnUpdateDomains_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="🔄" FontSize="12" />
+                                        <TextBlock Text="Update Domains" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="ModernButton" Background="#28A745" 
+                                        HorizontalAlignment="Stretch" Height="36">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="🔍" FontSize="12" />
+                                        <TextBlock Text="Test Connection" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
-
-            <!-- Collapsible Log Panel (like original v2rayN log) -->
-            <Expander Grid.Row="2" IsExpanded="False">
-                <Expander.Header>
-                    <DockPanel LastChildFill="True" Margin="10,6">
-                        <TextBlock Text="📝 Logs" FontWeight="SemiBold" />
-                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Spacing="8">
-                            <Button x:Name="btnCopyLogs" Content="Copy" FontSize="12" Padding="8,4" />
-                            <Button x:Name="btnClearLogs" Content="Clear" FontSize="12" Padding="8,4" />
-                        </StackPanel>
-                    </DockPanel>
-                </Expander.Header>
-                <Border BorderBrush="#E5E7EB" BorderThickness="1" Margin="10,0,10,10" CornerRadius="6" Background="#FAFAFA">
-                    <ScrollViewer x:Name="scrollLogs" VerticalScrollBarVisibility="Auto" Height="160">
-                        <TextBox x:Name="txtLogs"
-                                 Margin="8"
-                                 IsReadOnly="True"
-                                 AcceptsReturn="True"
-                                 TextWrapping="NoWrap"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontFamily="monospace"
-                                 FontSize="12"
-                                 Text=""/>
-                    </ScrollViewer>
-                </Border>
-            </Expander>
         </Grid>
     </dialogHost:DialogHost>
 </Window>

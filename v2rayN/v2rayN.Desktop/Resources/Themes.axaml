@@ -1,0 +1,120 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- Modern Card Style -->
+    <Style Selector="Border.ModernCard">
+        <Setter Property="Background" Value="#FFFFFF"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Padding" Value="20"/>
+        <Setter Property="Margin" Value="10"/>
+        <Setter Property="BorderBrush" Value="#E0E0E0"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BoxShadow" Value="0 2 8 0 #1A000000"/>
+    </Style>
+
+    <!-- Modern Button Style -->
+    <Style Selector="Button.ModernButton">
+        <Setter Property="Background" Value="#007ACC"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    
+    <Style Selector="Button.ModernButton:pointerover">
+        <Setter Property="Background" Value="#005A9E"/>
+        <Setter Property="RenderTransform" Value="scale(1.02)"/>
+    </Style>
+    
+    <Style Selector="Button.ModernButton:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+
+    <!-- Glass Card Style -->
+    <Style Selector="Border.GlassCard">
+        <Setter Property="Background" Value="#80FFFFFF"/>
+        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="Margin" Value="12"/>
+        <Setter Property="BorderBrush" Value="#40FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BoxShadow" Value="0 8 32 0 #1F1F38BB"/>
+    </Style>
+
+    <!-- Modern TextBox Style -->
+    <Style Selector="TextBox.ModernTextBox">
+        <Setter Property="Background" Value="#F8F9FA"/>
+        <Setter Property="Foreground" Value="#1A1A1A"/>
+        <Setter Property="BorderBrush" Value="#DEE2E6"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="FontSize" Value="14"/>
+    </Style>
+    
+    <Style Selector="TextBox.ModernTextBox:focus">
+        <Setter Property="BorderBrush" Value="#007ACC"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
+    <!-- Modern ComboBox Style -->
+    <Style Selector="ComboBox.ModernComboBox">
+        <Setter Property="Background" Value="#F8F9FA"/>
+        <Setter Property="Foreground" Value="#1A1A1A"/>
+        <Setter Property="BorderBrush" Value="#DEE2E6"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+
+    <!-- Pulse Animation Style -->
+    <Style Selector="Ellipse.PulseAnimation">
+        <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+    </Style>
+
+    <!-- Toggle Button Styles -->
+    <Style Selector="ToggleButton">
+        <Setter Property="Background" Value="#DC3545"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.3"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    
+    <Style Selector="ToggleButton:checked">
+        <Setter Property="Background" Value="#28A745"/>
+    </Style>
+
+    <!-- Status Colors -->
+    <Style Selector="Border.SuccessCard">
+        <Setter Property="Background" Value="#D4EDDA"/>
+        <Setter Property="BorderBrush" Value="#28A745"/>
+    </Style>
+    
+    <Style Selector="Border.ErrorCard">
+        <Setter Property="Background" Value="#F8D7DA"/>
+        <Setter Property="BorderBrush" Value="#DC3545"/>
+    </Style>
+    
+    <Style Selector="Border.WarningCard">
+        <Setter Property="Background" Value="#FFF3CD"/>
+        <Setter Property="BorderBrush" Value="#FFC107"/>
+    </Style>
+    
+    <Style Selector="Border.InfoCard">
+        <Setter Property="Background" Value="#D1ECF1"/>
+        <Setter Property="BorderBrush" Value="#17A2B8"/>
+    </Style>
+
+</Styles>
