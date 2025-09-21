@@ -441,6 +441,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
     private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
+        // Update domains.txt on app startup
+        await UpdateDomainsFile();
+        
         // Check for existing auth token first
         await Task.Delay(1000); // Longer delay to ensure DialogHost is ready
         await CheckExistingAuthToken();
@@ -1469,22 +1472,11 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
             var proxyDomains = new List<string>();
 
-            // Download domains.txt from tools.haiocloud.com if it doesn't exist
+            // Ensure domains.txt is available (but don't auto-update here, only on startup and manual request)
             if (!File.Exists(domainsFilePath))
             {
-                Console.WriteLine($"[DEBUG] domains.txt not found, downloading from tools.haiocloud.com...");
-                await DownloadDomainsFile(domainsFilePath);
-                
-                // Also try alternative locations for Linux build
-                if (!File.Exists(domainsFilePath))
-                {
-                    var binDomainsPath = Path.Combine(Environment.CurrentDirectory, "domains.txt");
-                    if (File.Exists(binDomainsPath))
-                    {
-                        Console.WriteLine($"[DEBUG] Found domains.txt in bin directory, copying to: {domainsFilePath}");
-                        File.Copy(binDomainsPath, domainsFilePath, true);
-                    }
-                }
+                Console.WriteLine($"[DEBUG] domains.txt not found, using UpdateDomainsFile...");
+                await UpdateDomainsFile();
             }
 
             if (File.Exists(domainsFilePath))
@@ -1565,22 +1557,13 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     port = "443",
                     network = "udp"
                 },
-                // Route specific domains through proxy (NO catch-all keyword)
+                // Route ONLY specific domains from domains.txt through proxy
                 new
                 {
-                    remarks = "HAIO - Proxy specific domains",
+                    remarks = "HAIO - Proxy domains from domains.txt only",
                     outboundTag = "proxy", 
                     enabled = true,
-                    domain = domains.Concat(new[] { 
-                        "geosite:cn", // Route Chinese sites  
-                        "geosite:google",
-                        "geosite:youtube", 
-                        "geosite:facebook",
-                        "geosite:twitter",
-                        "geosite:instagram",
-                        "geosite:telegram",
-                        "geosite:category-ads-all" // Route ads too
-                    }).ToArray()
+                    domain = domains.ToArray() // Only domains from tools.haiocloud.com/domains.txt
                 },
                 // All remaining traffic (direct IP connections) goes direct
                 new
@@ -1633,8 +1616,9 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             
             Console.WriteLine($"[DEBUG] HAIO routing configuration added and activated successfully");
             Console.WriteLine($"[DEBUG] Set routing mode - DomainStrategy: {_config.RoutingBasicItem.DomainStrategy}");
+            Console.WriteLine($"[DEBUG] Only domains from domains.txt will be routed through proxy, all others go direct");
             Console.WriteLine($"[DEBUG] Configuration saved and routing rules applied");
-            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains with domain strategy {_config.RoutingBasicItem.DomainStrategy}");
+            Logging.SaveLog($"HAIO routing activated: {domains.Count} domains from domains.txt only, others direct");
         }
         catch (Exception ex)
         {
@@ -1760,6 +1744,80 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             Console.WriteLine($"[DEBUG] Error downloading domains.txt: {ex.Message}");
             Logging.SaveLog($"Error downloading domains.txt: {ex.Message}");
         }
+    }
+
+    private async Task UpdateDomainsFile()
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] Updating domains.txt file...");
+            
+            string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+            
+            // Always try to download the latest domains.txt
+            await DownloadDomainsFile(domainsFilePath);
+            
+            // If download failed and file doesn't exist, check bin directory
+            if (!File.Exists(domainsFilePath))
+            {
+                var binDomainsPath = Path.Combine(Environment.CurrentDirectory, "domains.txt");
+                if (File.Exists(binDomainsPath))
+                {
+                    Console.WriteLine($"[DEBUG] Using domains.txt from bin directory as fallback");
+                    File.Copy(binDomainsPath, domainsFilePath, true);
+                }
+            }
+            
+            Console.WriteLine($"[DEBUG] Domains file update completed");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error updating domains file: {ex.Message}");
+            Logging.SaveLog($"Error updating domains file: {ex.Message}");
+        }
+    }
+
+    // Method to handle manual domain update button click
+    private async void UpdateDomainsButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] Manual domain update requested...");
+            
+            // Show updating status to user
+            ShowLoginStatus("Updating domains list...", isError: false);
+            
+            await UpdateDomainsFile();
+            
+            // Update routing rules with new domains
+            await SetupHaioRoutingRules();
+            
+            // Reload the core to apply new rules
+            Console.WriteLine($"[DEBUG] Reloading core to apply updated domain list...");
+            await ViewModel.Reload();
+            
+            ShowLoginStatus("Domains updated successfully!", isError: false);
+            
+            // Hide status after 3 seconds
+            await Task.Delay(3000);
+            HideLoginStatus();
+            
+            Console.WriteLine($"[DEBUG] Manual domain update completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error in manual domain update: {ex.Message}");
+            ShowLoginStatus("Failed to update domains", isError: true);
+            
+            // Hide error after 5 seconds
+            await Task.Delay(5000);
+            HideLoginStatus();
+        }
+    }
+
+    private void HideLoginStatus()
+    {
+        globalStatusBorder.IsVisible = false;
     }
 
     // Keyboard event handlers for better UX

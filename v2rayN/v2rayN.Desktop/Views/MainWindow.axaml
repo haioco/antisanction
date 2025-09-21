@@ -281,6 +281,13 @@
                                         <TextBlock Text="Refresh" FontSize="12" />
                                     </StackPanel>
                                 </Button>
+                                <Button x:Name="btnUpdateDomains" Classes="ModernButton" 
+                                        Background="#10B981" Padding="12,8" Click="UpdateDomainsButton_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="⬇" FontSize="14" />
+                                        <TextBlock Text="Update Domains" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
                                 <TextBlock x:Name="txtConfigCount" Text="No configurations loaded" 
                                            FontSize="12" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" />
                             </StackPanel>
