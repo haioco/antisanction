@@ -1540,99 +1540,48 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Create routing rule set JSON for HAIO - Route ONLY domains.txt through proxy
             var haioRouteRules = new List<object>();
 
-            // Linux-specific fix: Rules are processed top-to-bottom, first match wins
-            // On Linux, we need specific domain rules FIRST, then broad direct rules LAST
-            if (Utils.IsLinux())
+            // Rules are processed top-to-bottom, first match wins.
+            // We need specific domain rules FIRST, then broad direct rules LAST.
+
+            // Rule 1: Route ONLY specific domains from domains.txt through proxy (highest priority)
+            if (domains.Count > 0)
             {
-                Console.WriteLine($"[DEBUG] Using Linux-specific rule order (specific rules first, broad rules last)");
-                
-                // Rule 1 (Linux): Route ONLY specific domains from domains.txt through proxy (FIRST - highest priority)
-                if (domains.Count > 0)
-                {
-                    haioRouteRules.Add(new
-                    {
-                        remarks = "HAIO - Proxy domains from domains.txt only",
-                        outboundTag = "proxy", 
-                        enabled = true,
-                        domain = domains.ToArray() // Only domains from tools.haiocloud.com/domains.txt
-                    });
-                }
-
-                // Rule 2 (Linux): Bypass private networks (local traffic must be direct)
                 haioRouteRules.Add(new
                 {
-                    remarks = "HAIO - Direct private networks",
-                    outboundTag = "direct", 
+                    remarks = "HAIO - Proxy domains from domains.txt only",
+                    outboundTag = "proxy",
                     enabled = true,
-                    ip = new[] { "geoip:private" }
-                });
-
-                // Rule 3 (Linux): Default catch-all (IP-based) - ALL other traffic goes DIRECT (LAST - lowest priority)
-                haioRouteRules.Add(new
-                {
-                    remarks = "HAIO - Direct everything else by IP (fallback)",
-                    outboundTag = "direct",
-                    enabled = true,
-                    ip = new[] { "0.0.0.0/0", "::/0" }
-                });
-
-                // Rule 4 (Linux): Explicit catch-all constraints so core engines don't fall back to Proxy final (LAST)
-                haioRouteRules.Add(new
-                {
-                    remarks = "HAIO - Direct everything else (default)",
-                    outboundTag = "direct",
-                    enabled = true,
-                    // Ensure this rule catches all remaining connections explicitly
-                    port = "0-65535",
-                    network = "tcp,udp"
+                    domain = domains.ToArray() // Only domains from tools.haiocloud.com/domains.txt
                 });
             }
-            else
+
+            // Rule 2: Bypass private networks (local traffic must be direct)
+            haioRouteRules.Add(new
             {
-                // Windows/macOS: Use original rule order (works correctly on these platforms)
-                Console.WriteLine($"[DEBUG] Using Windows/macOS rule order (original behavior)");
-                
-                // Rule 1: Bypass private networks (local traffic must be direct)
-                haioRouteRules.Add(new
-                {
-                    remarks = "HAIO - Direct private networks",
-                    outboundTag = "direct", 
-                    enabled = true,
-                    ip = new[] { "geoip:private" }
-                });
+                remarks = "HAIO - Direct private networks",
+                outboundTag = "direct",
+                enabled = true,
+                ip = new[] { "geoip:private" }
+            });
 
-                // Rule 2: Route ONLY specific domains from domains.txt through proxy
-                if (domains.Count > 0)
-                {
-                    haioRouteRules.Add(new
-                    {
-                        remarks = "HAIO - Proxy domains from domains.txt only",
-                        outboundTag = "proxy", 
-                        enabled = true,
-                        domain = domains.ToArray() // Only domains from tools.haiocloud.com/domains.txt
-                    });
-                }
+            // Rule 3: Default catch-all (IP-based) - ALL other traffic goes DIRECT (lowest priority)
+            haioRouteRules.Add(new
+            {
+                remarks = "HAIO - Direct everything else by IP (fallback)",
+                outboundTag = "direct",
+                enabled = true,
+                ip = new[] { "0.0.0.0/0", "::/0" }
+            });
 
-                // Rule 3: Default catch-all (IP-based) - ALL other traffic goes DIRECT
-                haioRouteRules.Add(new
-                {
-                    remarks = "HAIO - Direct everything else by IP (fallback)",
-                    outboundTag = "direct",
-                    enabled = true,
-                    ip = new[] { "0.0.0.0/0", "::/0" }
-                });
-
-                // Rule 4: Explicit catch-all constraints so core engines don't fall back to Proxy final
-                haioRouteRules.Add(new
-                {
-                    remarks = "HAIO - Direct everything else (default)",
-                    outboundTag = "direct",
-                    enabled = true,
-                    // Ensure this rule catches all remaining connections explicitly
-                    port = "0-65535",
-                    network = "tcp,udp"
-                });
-            }
+            // Rule 4: Explicit catch-all constraints so core engines don't fall back to Proxy final (lowest priority)
+            haioRouteRules.Add(new
+            {
+                remarks = "HAIO - Direct everything else (default)",
+                outboundTag = "direct",
+                enabled = true,
+                port = "0-65535",
+                network = "tcp,udp"
+            });
 
             string routingJson = JsonSerializer.Serialize(haioRouteRules, new JsonSerializerOptions
             {

@@ -1925,10 +1925,10 @@ public static class ConfigHandler
     /// <param name="config">Current configuration</param>
     /// <param name="routingItem">Routing item to set as default</param>
     /// <returns>0 if successful</returns>
-    public static async Task<int> SetDefaultRouting(Config config, RoutingItem routingItem)
+    public static async Task<int> SetDefaultRouting(Config config, RoutingItem routingItem, bool forceUpdate = false)
     {
         var items = await AppManager.Instance.RoutingItems();
-        if (items.Any(t => t.Id == routingItem.Id && t.IsActive == true))
+        if (!forceUpdate && items.Any(t => t.Id == routingItem.Id && t.IsActive == true))
         {
             return -1;
         }
@@ -1942,6 +1942,22 @@ public static class ConfigHandler
             else
             {
                 item.IsActive = false;
+            }
+        }
+
+        // If forcing an update, either update the existing item or add a new one
+        if (forceUpdate)
+        {
+            var existingItem = items.FirstOrDefault(t => t.Id == routingItem.Id);
+            if (existingItem != null)
+            {
+                existingItem.RuleSet = routingItem.RuleSet;
+                existingItem.Remarks = routingItem.Remarks;
+                existingItem.IsActive = true;
+            }
+            else
+            {
+                items.Add(routingItem);
             }
         }
 
