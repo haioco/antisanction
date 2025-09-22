@@ -1533,11 +1533,12 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         try
         {
             Console.WriteLine($"[DEBUG] Creating HAIO routing configuration...");
+            Console.WriteLine($"[DEBUG] Environment: OS={Environment.OSVersion}, IsLinux={Utils.IsLinux()}, Domain count={domains.Count}");
 
             // Use proxy port 10820 for PAC/routing
             int proxyPort = 10820;
 
-            // Create routing rule set JSON for HAIO - Route ONLY domains.txt through proxy
+            // Create routing rule set JSON for HAIO - Route ONLY domains from domains.txt through proxy
             var haioRouteRules = new List<object>();
 
             // Rules are processed top-to-bottom, first match wins.
@@ -1730,9 +1731,19 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         try
         {
             Console.WriteLine($"[DEBUG] Downloading domains.txt from tools.haiocloud.com...");
+            Console.WriteLine($"[DEBUG] Runtime environment: OS={Environment.OSVersion}, IsLinux={Utils.IsLinux()}");
+            
+            // Use a clean HttpClient that bypasses any proxy configuration to ensure reliable download
+            var httpClientHandler = new HttpClientHandler()
+            {
+                UseProxy = false  // Explicitly disable proxy for domain list download
+            };
+            
+            using var directHttpClient = new HttpClient(httpClientHandler);
+            directHttpClient.Timeout = TimeSpan.FromSeconds(30);
             
             using var request = new HttpRequestMessage(HttpMethod.Get, "https://tools.haiocloud.com/domains.txt");
-            var response = await _httpClient.SendAsync(request);
+            var response = await directHttpClient.SendAsync(request);
             
             if (response.IsSuccessStatusCode)
             {
