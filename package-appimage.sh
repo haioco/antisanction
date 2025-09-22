@@ -9,12 +9,27 @@ sudo apt install -y libfuse2 wget file p7zip-full
 wget -qO appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
 chmod +x appimagetool
 
-# Download and extract core binaries for both architectures
+# Download and extract core binaries for both architectures with latest xray
 echo "Downloading core binaries..."
+XRAY_VERSION="v25.9.11"
+
+# Download official xray binaries for both architectures
+wget -nv -O "xray-linux-64.zip" "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip"
+wget -nv -O "xray-linux-arm64.zip" "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-arm64-v8a.zip"
+7z x -y "xray-linux-64.zip" -o"xray-x64-temp/"
+7z x -y "xray-linux-arm64.zip" -o"xray-arm64-temp/"
+
+# Download geo files and other binaries from 2dust (these are still current)
 wget -nv -O "v2rayN-linux-64.zip" "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-linux-64.zip"
 wget -nv -O "v2rayN-linux-arm64.zip" "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-linux-arm64.zip"
 7z x -y "v2rayN-linux-64.zip"
 7z x -y "v2rayN-linux-arm64.zip"
+
+# Replace xray binaries with the newer versions
+chmod +x xray-x64-temp/xray xray-arm64-temp/xray
+cp xray-x64-temp/xray "v2rayN-linux-64/bin/xray/xray"
+cp xray-arm64-temp/xray "v2rayN-linux-arm64/bin/xray/xray"
+rm -rf xray-*-temp/ xray-linux-*.zip
 
 # x86_64 AppDir
 APPDIR_X64="AppDir-x86_64"
