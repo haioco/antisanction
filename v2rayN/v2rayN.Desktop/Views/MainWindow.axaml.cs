@@ -1537,43 +1537,41 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Use proxy port 10820 for PAC/routing
             int proxyPort = 10820;
 
-            // Create routing rule set JSON for HAIO - Route ALL domains through proxy
-            var haioRouteRules = new List<object>
+            // Create routing rule set JSON for HAIO - Route ONLY domains.txt through proxy
+            var haioRouteRules = new List<object>();
+
+            // Rule 1: Bypass private networks (local traffic must be direct)
+            haioRouteRules.Add(new
             {
-                // Bypass private networks first (local traffic must be direct)
-                new
-                {
-                    remarks = "HAIO - Direct private networks",
-                    outboundTag = "direct", 
-                    enabled = true,
-                    ip = new[] { "geoip:private" }
-                },
-                // Block UDP 443 (common issue with some protocols) 
-                new
-                {
-                    remarks = "HAIO - Block UDP 443",
-                    outboundTag = "block",
-                    enabled = true,
-                    port = "443",
-                    network = "udp"
-                },
-                // Route ONLY specific domains from domains.txt through proxy
-                new
+                remarks = "HAIO - Direct private networks",
+                outboundTag = "direct", 
+                enabled = true,
+                ip = new[] { "geoip:private" }
+            });
+
+            // Rule 2: Route ONLY specific domains from domains.txt through proxy
+            if (domains.Count > 0)
+            {
+                haioRouteRules.Add(new
                 {
                     remarks = "HAIO - Proxy domains from domains.txt only",
                     outboundTag = "proxy", 
                     enabled = true,
                     domain = domains.ToArray() // Only domains from tools.haiocloud.com/domains.txt
-                },
-                // All remaining traffic (direct IP connections) goes direct
-                new
-                {
-                    remarks = "HAIO - Direct all IP traffic",
-                    outboundTag = "direct",
-                    enabled = true
-                    // No filters - this catches everything else (IP-based traffic)
-                }
-            };
+                });
+            }
+
+            // Rule 3: Default catch-all - ALL other traffic goes direct (this is crucial!)
+            // Add explicit catch-all constraints so core engines don't fall back to Proxy final
+            haioRouteRules.Add(new
+            {
+                remarks = "HAIO - Direct everything else (default)",
+                outboundTag = "direct",
+                enabled = true,
+                // Ensure this rule catches all remaining connections explicitly
+                port = "0-65535",
+                network = "tcp,udp"
+            });
 
             string routingJson = JsonSerializer.Serialize(haioRouteRules, new JsonSerializerOptions
             {
@@ -1608,7 +1606,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
 
             // Ensure routing is enabled and domain strategy is set appropriately
             _config.RoutingBasicItem.RoutingIndexId = haioRouting.Id;
-            _config.RoutingBasicItem.DomainStrategy = "IPIfNonMatch"; // This helps with domain resolution
+            _config.RoutingBasicItem.DomainStrategy = "AsIs"; // Use domain as-is, don't resolve to IP
             _config.RoutingBasicItem.DomainStrategy4Singbox = "prefer_ipv4";
             
             // Save the updated configuration
@@ -1966,41 +1964,29 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 // Ensure the selected configuration is set as default
                 await ConfigHandler.SetDefaultServerIndex(_config, selectedConfig.IndexId);
                 
-                // Set system proxy to use the local proxy server
-                try
-                {
-                    await SysProxyHandler.UpdateSysProxy(_config, false);
-                    LogToUser("PROXY", "System proxy configured at OS level");
-                    UpdateUIState(true);
-                    LogToUser("PROXY", "Anti-Sanction activated with system proxy");
-                    _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks}!", NotificationType.Success));
-                }
-                catch (Exception proxyEx)
-                {
-                    LogToUser("ERROR", $"Failed to set system proxy: {proxyEx.Message}");
-                    UpdateUIState(true); // Still show as active since core connection might work
-                    LogToUser("PROXY", "Anti-Sanction activated (core only - manual proxy setup required)");
-                    _manager?.Show(new Notification(null, $"⚠️ Connected but proxy setup failed: {proxyEx.Message}", NotificationType.Warning));
-                }
+                // Set up HAIO domain-based routing
+                await SetupHaioRoutingRules();
+                
+                // Use system proxy (manual) pointing to local core; routing rules handle domains only
+                _config.SystemProxyItem.SysProxyType = ESysProxyType.ForcedChange;
+                await SysProxyHandler.UpdateSysProxy(_config, false);
+                
+                UpdateUIState(true);
+                LogToUser("PROXY", "Anti-Sanction activated with rules-based routing");
+                LogToUser("INFO", "Only domains from domains.txt go via proxy; all other traffic is DIRECT");
+                LogToUser("INFO", "System proxy enabled for all apps; engine rules decide proxy vs direct");
+                _manager?.Show(new Notification(null, $"🟢 Connected via {selectedConfig.Remarks} (Rules Routing)!", NotificationType.Success));
             }
             else
             {
                 LogToUser("PROXY", "Deactivating Anti-Sanction proxy");
                 
-                // Deactivate Anti-Sanction – keep system proxy unchanged (no auto-clear)
+                // Clear system proxy
+                await SysProxyHandler.UpdateSysProxy(_config, true); // force disable
+                
                 UpdateUIState(false);
                 
-                // Explicitly clear system proxy settings at OS level
-                try
-                {
-                    await SysProxyHandler.UpdateSysProxy(_config, true);
-                    LogToUser("PROXY", "System proxy cleared at OS level");
-                }
-                catch (Exception clearEx)
-                {
-                    LogToUser("ERROR", $"Failed to clear system proxy: {clearEx.Message}");
-                }
-                
+                LogToUser("PROXY", "Rules-based routing deactivated");
                 LogToUser("PROXY", "Anti-Sanction deactivated - proxy cleared");
                 _manager?.Show(new Notification(null, "🔴 Anti-Sanction deactivated", NotificationType.Information));
             }
