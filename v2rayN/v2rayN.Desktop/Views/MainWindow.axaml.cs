@@ -1467,7 +1467,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             Console.WriteLine($"[DEBUG] Setting up HAIO domain-based routing rules...");
             
             // Read domains from domains.txt
-            string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+            string domainsFilePath = GetDomainsFilePath();
             Console.WriteLine($"[DEBUG] Looking for domains file at: {domainsFilePath}");
 
             var proxyDomains = new List<string>();
@@ -1765,13 +1765,43 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         }
     }
 
+    private string GetDomainsFilePath()
+    {
+        // Check if we have write permission to app directory
+        if (!Utils.HasWritePermission())
+        {
+            // For packaged apps without write permission, use user's config directory
+            if (Utils.IsLinux())
+            {
+                var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "haio-antisanction");
+                Directory.CreateDirectory(configDir);
+                return Path.Combine(configDir, "domains.txt");
+            }
+            else if (Utils.IsOSX())
+            {
+                var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "haio-antisanction");
+                Directory.CreateDirectory(configDir);
+                return Path.Combine(configDir, "domains.txt");
+            }
+            else if (Utils.IsWindows())
+            {
+                var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "haio-antisanction");
+                Directory.CreateDirectory(configDir);
+                return Path.Combine(configDir, "domains.txt");
+            }
+        }
+        
+        // For local builds or when we have write permission, use app directory
+        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+    }
+
     private async Task UpdateDomainsFile()
     {
         try
         {
             Console.WriteLine($"[DEBUG] Updating domains.txt file...");
             
-            string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+            string domainsFilePath = GetDomainsFilePath();
             
             // Always try to download the latest domains.txt
             await DownloadDomainsFile(domainsFilePath);
@@ -1895,7 +1925,7 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             }
 
             // Force re-download of domains.txt
-            string domainsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "domains.txt");
+            string domainsFilePath = GetDomainsFilePath();
             
             // Delete existing file to force re-download
             if (File.Exists(domainsFilePath))
