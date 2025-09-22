@@ -1561,8 +1561,17 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 });
             }
 
-            // Rule 3: Default catch-all - ALL other traffic goes direct (this is crucial!)
-            // Add explicit catch-all constraints so core engines don't fall back to Proxy final
+            // Rule 3: Default catch-all (IP-based) - ALL other traffic goes DIRECT
+            // Add an IP-wide DIRECT rule so both Xray and sing-box default to DIRECT if domain rules don't match
+            haioRouteRules.Add(new
+            {
+                remarks = "HAIO - Direct everything else by IP (fallback)",
+                outboundTag = "direct",
+                enabled = true,
+                ip = new[] { "0.0.0.0/0", "::/0" }
+            });
+
+            // Rule 4: Explicit catch-all constraints so core engines don't fall back to Proxy final
             haioRouteRules.Add(new
             {
                 remarks = "HAIO - Direct everything else (default)",

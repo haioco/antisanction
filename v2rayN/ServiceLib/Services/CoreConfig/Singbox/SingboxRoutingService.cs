@@ -6,7 +6,9 @@ public partial class CoreConfigSingboxService
     {
         try
         {
-            singboxConfig.route.final = Global.ProxyTag;
+            // Default sing-box final to DIRECT; our rules will explicitly send listed domains to PROXY.
+            // This guarantees unmatched traffic does not accidentally go through proxy.
+            singboxConfig.route.final = Global.DirectTag;
             var item = _config.SimpleDNSItem;
 
             var defaultDomainResolverTag = Global.SingboxOutboundResolverTag;
