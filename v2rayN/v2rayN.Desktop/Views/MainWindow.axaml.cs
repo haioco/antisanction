@@ -2481,13 +2481,13 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     // Check if proxy is active based on toggle button state
                     if (btnToggleAntiSanction.IsChecked == true)
                     {
-                        txtDownload.Text = "0 B/s";
-                        txtUpload.Text = "0 B/s";
+                        // txtDownload.Text = "0 B/s"; // Removed UI element
+                        // txtUpload.Text = "0 B/s"; // Removed UI element
                     }
                     else
                     {
-                        txtDownload.Text = "No Data";
-                        txtUpload.Text = "No Data";
+                        // txtDownload.Text = "No Data"; // Removed UI element
+                        // txtUpload.Text = "No Data"; // Removed UI element
                     }
                 });
                 return;
@@ -2536,8 +2536,8 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Update UI on UI thread
             Dispatcher.UIThread.Post(() =>
             {
-                txtUpload.Text = uploadSpeed;
-                txtDownload.Text = downloadSpeed;
+                // txtUpload.Text = uploadSpeed; // Removed UI element
+                // txtDownload.Text = downloadSpeed; // Removed UI element
             });
         }
         catch
@@ -2545,8 +2545,8 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Fallback: show default values
             Dispatcher.UIThread.Post(() =>
             {
-                txtUpload.Text = "0 B/s";
-                txtDownload.Text = "0 B/s";
+                // txtUpload.Text = "0 B/s"; // Removed UI element
+                // txtDownload.Text = "0 B/s"; // Removed UI element
             });
         }
     }
