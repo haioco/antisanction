@@ -257,11 +257,39 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 break;
 
             case WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown:
+                // Ensure OS proxy is cleared before exit
+                await ClearOSProxyOnExit();
                 await AppManager.Instance.AppExitAsync(false);
                 break;
         }
 
         base.OnClosing(e);
+    }
+    
+    private async Task ClearOSProxyOnExit()
+    {
+        try
+        {
+            Console.WriteLine("[DEBUG] Clearing OS proxy settings on exit...");
+            LogToUser("SYSTEM", "Clearing OS proxy settings on application exit");
+            
+            // Force disable system proxy
+            await SysProxyHandler.UpdateSysProxy(_config, true);
+            
+            // Update OS proxy status display
+            Dispatcher.UIThread.Post(() =>
+            {
+                txtOSProxy.Text = "Disabled";
+            });
+            
+            Console.WriteLine("[DEBUG] OS proxy cleared successfully");
+            LogToUser("SYSTEM", "OS proxy settings cleared");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error clearing OS proxy on exit: {ex.Message}");
+            LogToUser("ERROR", $"Failed to clear OS proxy: {ex.Message}");
+        }
     }
 
     private async void MainWindow_KeyDown(object? sender, KeyEventArgs e)
@@ -2051,9 +2079,13 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         }
     }
 
-    private void BtnCloseApp_Click(object? sender, RoutedEventArgs e)
+    private async void BtnCloseApp_Click(object? sender, RoutedEventArgs e)
     {
         _blCloseByUser = true;
+        
+        // Clear OS proxy before closing
+        await ClearOSProxyOnExit();
+        
         StorageUI();
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -2174,7 +2206,14 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
         {
             Console.WriteLine("[DEBUG] Loading proxy configurations...");
             
-            // Get all profile items from the configuration
+            // Force refresh of configuration data
+            await Task.Run(() => 
+            {
+                // Trigger a reload of the configuration from file/storage
+                _config = AppManager.Instance.Config;
+            });
+            
+            // Get all profile items from the configuration with forced refresh
             var profileItems = await AppManager.Instance.ProfileItems("", "");
             if (profileItems == null || profileItems.Count == 0)
             {
@@ -2183,10 +2222,39 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 return;
             }
 
-            // ProfileItems already returns ProfileItemModel, just update the ConfigTypeDisplay
+            // ProfileItems already returns ProfileItemModel, just update the ConfigTypeDisplay and format names
             foreach (var profile in profileItems)
             {
                 profile.ConfigTypeDisplay = GetConfigTypeDisplay(profile.ConfigType);
+                
+                // Enhance display name for servers without traffic info
+                if (!string.IsNullOrEmpty(profile.Remarks))
+                {
+                    var serverName = profile.Remarks;
+                    var serverAddress = profile.Address?.ToLower() ?? "";
+                    
+                    // Check if this server doesn't have traffic info in the name AND no Extra field data
+                    if (!serverName.Contains("GB") && !serverName.Contains("used") && string.IsNullOrEmpty(profile.Extra))
+                    {
+                        // Check if it's a HAIO server or manual server
+                        if (serverAddress.Contains("haiocloud.com") || serverName.ToLower().Contains("haio"))
+                        {
+                            // HAIO server without traffic info - mark as unlimited
+                            if (!serverName.Contains("Unlimited"))
+                            {
+                                profile.Remarks = $"{serverName} (Unlimited)";
+                            }
+                        }
+                        else
+                        {
+                            // Manual server - mark as custom
+                            if (!serverName.Contains("Custom"))
+                            {
+                                profile.Remarks = $"{serverName} (Custom Server)";
+                            }
+                        }
+                    }
+                }
             }
 
             Console.WriteLine($"[DEBUG] Loaded {profileItems.Count} configurations");
@@ -2293,7 +2361,17 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             // Update the UI to reflect the selected configuration
             UpdateSelectedConfigurationInfo(selectedConfig);
             
-            Console.WriteLine($"[DEBUG] Default server updated to: {selectedConfig.IndexId}");
+            // Restart the proxy service with the new configuration
+            if (ViewModel != null)
+            {
+                Console.WriteLine($"[DEBUG] Restarting proxy service with new configuration...");
+                await ViewModel.Reload();
+                
+                // Show user feedback
+                _manager?.Show(new Notification(null, $"✅ Switched to: {selectedConfig.Remarks}", NotificationType.Success));
+            }
+            
+            Console.WriteLine($"[DEBUG] Default server updated and proxy restarted: {selectedConfig.IndexId}");
         }
         catch (Exception ex)
         {
@@ -2319,8 +2397,53 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 {
                     txtStatusDescription.Text = $"Ready to activate {config.ConfigTypeDisplay}: {config.Remarks}";
                 }
+                
+                // Update account information panel
+                UpdateAccountInfo(config);
             }
         });
+    }
+    
+    private void UpdateAccountInfo(ProfileItemModel config)
+    {
+        try
+        {
+            // Update config title
+            txtConfigTitle.Text = config.Remarks ?? "N/A";
+            
+            // Get HAIO traffic information if available
+            var (configTitle, totalTraffic, usedTraffic) = GetHaioTrafficInfo(config);
+            
+            if (!string.IsNullOrEmpty(configTitle))
+            {
+                txtConfigTitle.Text = configTitle;
+            }
+            
+            if (!string.IsNullOrEmpty(totalTraffic))
+            {
+                txtTotalTraffic.Text = totalTraffic;
+            }
+            else
+            {
+                txtTotalTraffic.Text = "N/A";
+            }
+            
+            if (!string.IsNullOrEmpty(usedTraffic))
+            {
+                txtUsedTraffic.Text = usedTraffic;
+            }
+            else
+            {
+                txtUsedTraffic.Text = "N/A";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error updating account info: {ex.Message}");
+            txtConfigTitle.Text = config?.Remarks ?? "N/A";
+            txtTotalTraffic.Text = "N/A";
+            txtUsedTraffic.Text = "N/A";
+        }
     }
 
     #endregion Configuration Management
@@ -2558,12 +2681,15 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
             Console.WriteLine($"[DEBUG] GetHaioTrafficInfo called for server: {selectedConfig.Remarks}");
             Console.WriteLine($"[DEBUG] Server Extra field: '{selectedConfig.Extra ?? "NULL"}'");
             
-            // Try to get HAIO data from Extra field first
+            var configTitle = "N/A";
+            var totalTraffic = "N/A";
+            var usedTraffic = "N/A";
+            
+            // Priority 1: Try to get HAIO data from Extra field (most accurate real-time data)
             if (!string.IsNullOrEmpty(selectedConfig.Extra))
             {
                 Console.WriteLine($"[DEBUG] Found Extra data for server: {selectedConfig.Extra}");
                 
-                // Try to parse as JSON object first
                 try
                 {
                     using var document = JsonDocument.Parse(selectedConfig.Extra);
@@ -2572,26 +2698,32 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                     if (root.TryGetProperty("source", out var sourceElement) && 
                         sourceElement.GetString() == "haio")
                     {
-                        var configTitle = selectedConfig.Remarks ?? "N/A";
+                        configTitle = selectedConfig.Remarks ?? "N/A";
                         if (root.TryGetProperty("originalTitle", out var titleElement))
                         {
                             configTitle = titleElement.GetString() ?? selectedConfig.Remarks ?? "N/A";
                         }
                         
-                        var totalTraffic = "N/A";
+                        // Extract the clean title without traffic info
+                        var displayName = selectedConfig.Remarks ?? "";
+                        var cleanTitleMatch = System.Text.RegularExpressions.Regex.Match(displayName, @"^(.+?)\s*\([\d.]+GB");
+                        if (cleanTitleMatch.Success)
+                        {
+                            configTitle = cleanTitleMatch.Groups[1].Value.Trim();
+                        }
+                        
                         if (root.TryGetProperty("totalTraffic", out var totalTrafficElement))
                         {
                             totalTraffic = $"{totalTrafficElement.GetDecimal()} GB";
                         }
                         
-                        var usedTraffic = "N/A";
                         if (root.TryGetProperty("totalTrafficUsage", out var usageElement) && 
                             root.TryGetProperty("usagePercent", out var percentElement))
                         {
                             usedTraffic = $"{usageElement.GetString()} GB ({percentElement.GetString()}%)";
                         }
                         
-                        Console.WriteLine($"[DEBUG] HAIO traffic info - Title: {configTitle}, Total: {totalTraffic}, Used: {usedTraffic}");
+                        Console.WriteLine($"[DEBUG] Using HAIO Extra field data - Title: {configTitle}, Total: {totalTraffic}, Used: {usedTraffic}");
                         return (configTitle, totalTraffic, usedTraffic);
                     }
                 }
@@ -2601,13 +2733,59 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 }
             }
             
-            // Fallback to local traffic statistics if no HAIO data
-            var configTitleFallback = selectedConfig.Remarks ?? "N/A";
-            var totalTrafficFallback = FormatTrafficSize(selectedConfig.TotalUp, selectedConfig.TotalDown);
-            var todayTrafficFallback = FormatTrafficSize(selectedConfig.TodayUp, selectedConfig.TodayDown);
+            // Priority 2: Parse traffic info from display name (fallback)
+            var displayNameFallback = selectedConfig.Remarks ?? "";
+            var trafficMatch = System.Text.RegularExpressions.Regex.Match(displayNameFallback, @"^(.+?)\s*\((\d+)GB,\s*([\d.]+)%\s+used\)");
+            if (trafficMatch.Success)
+            {
+                configTitle = trafficMatch.Groups[1].Value.Trim();
+                var totalGb = trafficMatch.Groups[2].Value;
+                var usedPercent = trafficMatch.Groups[3].Value;
+                
+                totalTraffic = $"{totalGb} GB";
+                
+                // Calculate used amount from percentage
+                if (decimal.TryParse(totalGb, out var totalGbDecimal) && 
+                    decimal.TryParse(usedPercent, out var usedPercentDecimal))
+                {
+                    var usedGb = (totalGbDecimal * usedPercentDecimal / 100).ToString("F2");
+                    usedTraffic = $"{usedGb} GB ({usedPercent}%)";
+                }
+                else
+                {
+                    usedTraffic = $"0.00 GB ({usedPercent}%)";
+                }
+                
+                Console.WriteLine($"[DEBUG] Using display name data - Title: {configTitle}, Total: {totalTraffic}, Used: {usedTraffic}");
+                return (configTitle, totalTraffic, usedTraffic);
+            }
             
-            Console.WriteLine($"[DEBUG] Using fallback traffic info - Title: {configTitleFallback}, Total: {totalTrafficFallback}, Today: {todayTrafficFallback}");
-            return (configTitleFallback, totalTrafficFallback, todayTrafficFallback);
+            // Fallback to local traffic statistics for non-HAIO servers
+            configTitle = selectedConfig.Remarks ?? "N/A";
+            
+            // Check if this is a HAIO-related server by domain or name
+            var serverAddress = selectedConfig.Address?.ToLower() ?? "";
+            var serverName = selectedConfig.Remarks?.ToLower() ?? "";
+            
+            if (serverAddress.Contains("haiocloud.com") || serverName.Contains("haio"))
+            {
+                // This is a HAIO server but without traffic data - show as unlimited
+                totalTraffic = "Unlimited";
+                usedTraffic = "Available";
+                Console.WriteLine($"[DEBUG] HAIO server without traffic data - Title: {configTitle}, Status: Unlimited");
+            }
+            else
+            {
+                // This is a regular manually-added server
+                var totalTrafficSize = FormatTrafficSize(selectedConfig.TotalUp, selectedConfig.TotalDown);
+                var todayTrafficSize = FormatTrafficSize(selectedConfig.TodayUp, selectedConfig.TodayDown);
+                
+                totalTraffic = string.IsNullOrEmpty(totalTrafficSize) ? "No Limit" : totalTrafficSize;
+                usedTraffic = string.IsNullOrEmpty(todayTrafficSize) ? "0 B" : todayTrafficSize;
+                Console.WriteLine($"[DEBUG] Manual server traffic - Title: {configTitle}, Total: {totalTraffic}, Used: {usedTraffic}");
+            }
+            
+            return (configTitle, totalTraffic, usedTraffic);
         }
         catch (Exception ex)
         {

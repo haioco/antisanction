@@ -360,7 +360,18 @@ public class ProfilesViewModel : MyReactiveObject
     private async Task RefreshServersBiz()
     {
         var lstModel = await GetProfileItemsEx(_config.SubIndexId, _serverFilter);
-        _lstProfile = JsonUtils.Deserialize<List<ProfileItem>>(JsonUtils.Serialize(lstModel)) ?? [];
+        
+        // Preserve the original ProfileItem data by fetching fresh from database
+        // instead of using problematic JSON serialization that loses the Extra field
+        _lstProfile = new List<ProfileItem>();
+        foreach (var model in lstModel)
+        {
+            var profileItem = await AppManager.Instance.GetProfileItem(model.IndexId);
+            if (profileItem != null)
+            {
+                _lstProfile.Add(profileItem);
+            }
+        }
 
         ProfileItems.Clear();
         ProfileItems.AddRange(lstModel);
@@ -466,7 +477,15 @@ public class ProfilesViewModel : MyReactiveObject
         }
         else
         {
-            lstSelected = JsonUtils.Deserialize<List<ProfileItem>>(JsonUtils.Serialize(orderProfiles));
+            // Always fetch from database to preserve Extra field and other data
+            foreach (var profile in orderProfiles)
+            {
+                var item = await AppManager.Instance.GetProfileItem(profile.IndexId);
+                if (item is not null)
+                {
+                    lstSelected.Add(item);
+                }
+            }
         }
 
         return lstSelected;

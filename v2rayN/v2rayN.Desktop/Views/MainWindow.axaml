@@ -276,11 +276,10 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 
                                 <Button Grid.Column="0" x:Name="btnRefreshConfigs" Classes="ModernButton" 
-                                        Background="#06B6D4" Height="40" Margin="0,0,5,0" Click="BtnRefreshConfigs_Click">
+                                        Background="#06B6D4" Height="40" Margin="0,0,10,0" Click="BtnRefreshConfigs_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="🔄" FontSize="14" />
                                         <TextBlock Text="Refresh" FontSize="12" />
@@ -288,18 +287,10 @@
                                 </Button>
                                 
                                 <Button Grid.Column="1" x:Name="btnUpdateDomains" Classes="ModernButton" 
-                                        Background="#10B981" Height="40" Margin="5,0" Click="UpdateDomainsButton_Click">
+                                        Background="#10B981" Height="40" Margin="10,0,0,0" Click="UpdateDomainsButton_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="⬇" FontSize="14" />
                                         <TextBlock Text="Update Domains" FontSize="12" />
-                                    </StackPanel>
-                                </Button>
-                                
-                                <Button Grid.Column="2" Classes="ModernButton" Background="#28A745" 
-                                        Height="40" Margin="5,0,0,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="🔍" FontSize="14" />
-                                        <TextBlock Text="Test" FontSize="12" />
                                     </StackPanel>
                                 </Button>
                             </Grid>
